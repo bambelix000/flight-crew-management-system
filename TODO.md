@@ -1,3 +1,4 @@
 - Install local docker
 - Dev Containers vscode extension - https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers
--
+- make .env file and copy .env.example with new password
+- Ctrl+Shift+P -> "Reopen in Container"
