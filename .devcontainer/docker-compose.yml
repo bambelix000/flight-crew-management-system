@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ../:/workspace
+    command: /bin/sh -c "while sleep 1000; do :; done"
+    ports:
+      - "5050:5000" # Backend HTTP
+      - "5001:5001" # Backend HTTPS
+      - "3000:3000" # Frontend (React/Vue??)
+      - "5173:5173" # Frontend (Vite?)
+    depends_on:
+      - db
+    networks:
+      - dev-network
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dev-network
+
+volumes:
+  pgdata:
+
+networks:
+  dev-network:
