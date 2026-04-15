@@ -1,25 +1,14 @@
 {
-	"name": "Flight Crew System Dev",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
-	"workspaceFolder": "/workspace",
-
+	"name": "Flight Crew Java Environment",
+	"image": "mcr.microsoft.com/devcontainers/java:21",
+	"forwardPorts": [8080, 5432],
 	"customizations": {
 		"vscode": {
-			"settings": {
-				"editor.formatOnSave": true
-			},
 			"extensions": [
-				"ms-dotnettools.csharp",
-				"ms-dotnettools.csdevkit",
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				"mtxr.sqltools",
-				"mtxr.sqltools-driver-pg"
+				"vscjava.vscode-java-pack",
+				"vscjava.vscode-spring-boot-dashboard"
 			]
 		}
 	},
-
-	"remoteUser": "vscode",
-	"forwardPorts": [5432, 5050, 5001, 3000, 5173]
+	"remoteUser": "vscode"
 }
