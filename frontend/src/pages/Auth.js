@@ -19,23 +19,25 @@ function Auth() {
   };
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await fetch('http://localhost:8080/users/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginData)
-    });
-    const text = await res.text();
-    if (res.ok) {
-      navigate('/dashboard'); 
-    } else {
-      setMessage({ text: 'Błędny login lub hasło', type: 'error' });
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:8080/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      });
+      
+      if (res.ok) {
+        const user = await res.json();
+        localStorage.setItem('user', JSON.stringify(user));
+        navigate('/dashboard'); 
+      } else {
+        setMessage({ text: 'Błędny login lub hasło', type: 'error' });
+      }
+    } catch (err) { 
+      setMessage({ text: 'Błąd połączenia z serwerem', type: 'error' }); 
     }
-  } catch (err) { 
-    setMessage({ text: 'Błąd połączenia z serwerem', type: 'error' }); 
-  }
-    };
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
