@@ -23,6 +23,6 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
         User user = userService.login(loginRequest.getLogin(), loginRequest.getPassword());
-        return ResponseEntity.ok("Zalogowano pomyślnie jako: " + user.getFullName());
+        return ResponseEntity.ok("Zalogowano pomyślnie jako: " + user.getName());
     }
 }
