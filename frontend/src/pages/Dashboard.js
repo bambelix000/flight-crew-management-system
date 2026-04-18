@@ -34,6 +34,10 @@ function Dashboard() {
     navigate('/');
   };
 
+  const handleMyProfile = () => {
+    navigate("/myProfile")
+  };
+
   const toggleFlightSelection = (id) => {
     setSelectedFlights(prev => 
       prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
@@ -56,6 +60,7 @@ function Dashboard() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <h1 style={{ fontSize: '24px', color: '#1a1f36' }}>Panel Zarządzania Lotami</h1>
         <button onClick={handleLogout} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Wyloguj</button>
+        <button onClick={handleMyProfile} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Profil</button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px' }}>
