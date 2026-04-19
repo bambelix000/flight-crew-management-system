@@ -8,6 +8,7 @@ import com.tab.flight_crew_manager.user.UserRole; // Upewnij się, że masz ten 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -17,14 +18,14 @@ import java.util.List;
 public class DataConfig {
 
     @Bean
-    CommandLineRunner initDatabase(UserRepository userRepository, FlightRepository flightRepository) {
+    CommandLineRunner initDatabase(UserRepository userRepository, FlightRepository flightRepository, PasswordEncoder passwordEncoder) {
         return args -> {
 
             if (userRepository.count() == 0) {
                 User jasiu = new User(
                         UserRole.CREWMEMBER,
                         "jan.kowalski",
-                        "haslo123",
+                        passwordEncoder.encode("haslo123"),
                         "Jan",
                         "Kowalski",
                         "+48123456789"

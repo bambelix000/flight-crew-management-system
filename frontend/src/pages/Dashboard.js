@@ -8,18 +8,34 @@ function Dashboard() {
   const [selectedFlights, setSelectedFlights] = useState([]);
 
   useEffect(() => {
+    // 1. Sprawdzamy czy istnieje zapisany token JWT
+    const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (!savedUser) {
-      navigate('/');
+    
+    if (!token || !savedUser) {
+      handleLogout(); // Jeśli nie ma tokenu, automatycznie wyloguj
     } else {
       setUser(JSON.parse(savedUser));
-      fetchFlights();
+      fetchFlights(token);
     }
   }, [navigate]);
 
-  const fetchFlights = async () => {
+  const fetchFlights = async (token) => {
     try {
-      const res = await fetch('http://localhost:8080/flights');
+      const res = await fetch('http://localhost:8080/flights', {
+        headers: {
+          // 2. Doklejamy token JWT do zapytania!
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // 3. Sprawdzamy czy backend nas odrzucił (np. token wygasł po 24h)
+      if (res.status === 401 || res.status === 403) {
+        console.error("Token wygasł lub brak uprawnień.");
+        handleLogout();
+        return;
+      }
+      
       if (res.ok) {
         const data = await res.json();
         setFlights(data);
@@ -31,6 +47,7 @@ function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token'); // Czyścimy też token!
     navigate('/');
   };
 

@@ -8,7 +8,7 @@ function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   
   const [loginData, setLoginData] = useState({ login: '', password: '' });
-  const [regData, setRegData] = useState({ login: '', password: '', name: '', fullName: '', phoneNumber: '', userRole: 'CREWMEMBER' });
+  const [regData, setRegData] = useState({ login: '', password: '', name: '', surname: '', phoneNumber: '', userRole: 'CREWMEMBER' });
 
   const switchView = (toLogin) => {
     setIsLoginView(toLogin);
@@ -21,15 +21,31 @@ function Auth() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:8080/users/login', {
+      // UWAGA: Zmieniony URL na /auth/login
+      const res = await fetch('http://localhost:8080/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
       });
       
       if (res.ok) {
-        const user = await res.json();
-        localStorage.setItem('user', JSON.stringify(user));
+        const authResponse = await res.json();
+        
+        // Zapisujemy token JWT do pamięci przeglądarki
+        localStorage.setItem('token', authResponse.token);
+        
+        // Zapisujemy podstawowe dane usera (żeby mieć co wyświetlić w Dashboardzie)
+        localStorage.setItem('user', JSON.stringify({
+            login: authResponse.login,
+            userRole: authResponse.role,
+            // Tymczasowe puste wartości, docelowo backend powinien zwracać pełne statystyki usera,
+            // lub Dashboard powinien je pobrać osobnym endpointem GET /users/me
+            name: authResponse.login, 
+            surname: '',
+            twentyDaysAirTime: 0,
+            annualAirTime: 0
+        }));
+        
         navigate('/dashboard'); 
       } else {
         setMessage({ text: 'Błędny login lub hasło', type: 'error' });
@@ -42,7 +58,8 @@ function Auth() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:8080/users/register', {
+      // UWAGA: Zmieniony URL na /auth/register
+      const res = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(regData)
