@@ -8,28 +8,46 @@ function Dashboard() {
   const [selectedFlights, setSelectedFlights] = useState([]);
 
   useEffect(() => {
-    // 1. Sprawdzamy czy istnieje zapisany token JWT
     const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    const savedData = localStorage.getItem('user');
     
-    if (!token || !savedUser) {
-      handleLogout(); // Jeśli nie ma tokenu, automatycznie wyloguj
-    } else {
-      setUser(JSON.parse(savedUser));
-      fetchFlights(token);
+    if (!token || !savedData) {
+      handleLogout();
+      return;
     }
+    
+    const parsedUser = JSON.parse(savedData);
+
+    // 1. Pobieranie zaktualizowanego czasu lotu (FTL) z backendu
+    fetch(`http://localhost:8080/users/${parsedUser.id}`, {
+      method: 'GET',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Błąd pobierania usera");
+        return res.json();
+      })
+      .then(freshUserData => {
+        setUser(freshUserData);
+      })
+      .catch(err => console.error("Nie udało się pobrać statystyk:", err));
+
+    // 2. Pobieranie listy lotów (Tego brakowało!)
+    fetchFlights(token);
+
   }, [navigate]);
 
   const fetchFlights = async (token) => {
     try {
       const res = await fetch('http://localhost:8080/flights', {
         headers: {
-          // 2. Doklejamy token JWT do zapytania!
           'Authorization': `Bearer ${token}`
         }
       });
       
-      // 3. Sprawdzamy czy backend nas odrzucił (np. token wygasł po 24h)
       if (res.status === 401 || res.status === 403) {
         console.error("Token wygasł lub brak uprawnień.");
         handleLogout();
@@ -47,12 +65,8 @@ function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('token'); // Czyścimy też token!
+    localStorage.removeItem('token');
     navigate('/');
-  };
-
-  const handleMyProfile = () => {
-    navigate("/myProfile")
   };
 
   const toggleFlightSelection = (id) => {
@@ -76,8 +90,14 @@ function Dashboard() {
     <div style={styles.container}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <h1 style={{ fontSize: '24px', color: '#1a1f36' }}>Panel Zarządzania Lotami</h1>
-        <button onClick={handleLogout} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Wyloguj</button>
-        <button onClick={handleMyProfile} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Profil</button>
+        <div>
+          {/* Menu Nawigacyjne w Dashboardzie */}
+          {user.userRole === 'ADMIN' && (
+            <button onClick={() => navigate('/userList')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#fed7d7', color: '#9b2c2c', fontWeight: '600', marginRight: '10px' }}>Użytkownicy</button>
+          )}
+          <button onClick={() => navigate('/myProfile')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#5469d4', color: '#fff', fontWeight: '600', marginRight: '10px' }}>Mój Profil</button>
+          <button onClick={handleLogout} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Wyloguj</button>
+        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px' }}>
@@ -87,7 +107,7 @@ function Dashboard() {
           <table style={styles.table}>
             <thead>
               <tr>
-                {user.userRole === 'SCHEDULER' && <th></th>}
+                {user.userRole === 'SCHEDULER' && <th style={styles.th}></th>}
                 <th style={styles.th}>Nr Lotu</th>
                 <th style={styles.th}>Trasa</th>
                 <th style={styles.th}>Wylot</th>

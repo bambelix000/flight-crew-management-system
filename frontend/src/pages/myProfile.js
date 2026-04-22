@@ -8,34 +8,73 @@ function MyProfile() {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (!savedUser) {
+    const savedData = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    if (!savedData || !token) {
       navigate('/');
-    } else {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setNewPhone(parsedUser.phoneNumber || '');
+      return;
     }
-  }, [navigate]);
+    
+    const parsedUser = JSON.parse(savedData);
 
+    // Zamiast ufać starym danym z pamięci przeglądarki, pobieramy najświeższe z bazy!
+    fetch(`http://localhost:8080/users/${parsedUser.id}`, {
+      method: 'GET',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Błąd pobierania");
+        return res.json();
+      })
+      .then(freshUserData => {
+        // Ustawiamy w profilu świeże dane prosto z serwera (w tym godziny lotu!)
+        setUser(freshUserData);
+        setNewPhone(freshUserData.phoneNumber || '');
+      })
+      .catch(err => {
+        console.error(err);
+        setMessage({ text: 'Nie udało się pobrać najnowszych statystyk.', type: 'error' });
+      });
+
+  }, [navigate]);
   const handleUpdate = async () => {
+    // Prawidłowe pobieranie tokenu z Auth.js
+    const token = localStorage.getItem('token'); 
+
+    if (!token) {
+      setMessage({ text: 'Błąd sesji: Brak tokenu. Zaloguj się ponownie.', type: 'error' });
+      return;
+    }
+
+    if (!user.id) {
+      setMessage({ text: 'Błąd: Twój system logowania nie pobrał ID użytkownika z serwera!', type: 'error' });
+      return;
+    }
+
     try {
       const res = await fetch(`http://localhost:8080/users/${user.id}/phone`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify({ phoneNumber: newPhone })
       });
 
       if (res.ok) {
         const updatedUser = { ...user, phoneNumber: newPhone };
         setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser)); // Aktualizacja sesji
-        setMessage({ text: 'Numer telefonu został zaktualizowany!', type: 'success' });
+        localStorage.setItem('user', JSON.stringify(updatedUser)); // Zapisz nowy numer, by nie zniknął po odświeżeniu
+        setMessage({ text: 'Numer telefonu zaktualizowany pomyślnie!', type: 'success' });
       } else {
-        setMessage({ text: 'Błąd podczas aktualizacji danych.', type: 'error' });
+        setMessage({ text: `Serwer odrzucił zmianę (Kod błędu: ${res.status})`, type: 'error' });
       }
     } catch (err) {
-      setMessage({ text: 'Błąd połączenia z serwerem.', type: 'error' });
+      setMessage({ text: 'Błąd połączenia z backendem.', type: 'error' });
     }
   };
 
@@ -53,18 +92,12 @@ function MyProfile() {
     label: { color: '#4f566b', fontSize: '14px' },
     value: { color: '#1a1f36', fontSize: '14px', fontWeight: '500' },
     input: { padding: '8px 12px', border: '1px solid #dcdfe4', borderRadius: '6px', fontSize: '14px', width: '200px', outline: 'none', transition: 'border-color 0.2s' },
-    button: { width: '100%', padding: '12px', backgroundColor: '#5469d4', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px' },
+    button: { width: '100%', padding: '12px', backgroundColor: '#5469d4', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px', transition: 'all 0.2s' },
     backLink: { display: 'block', textAlign: 'center', color: '#5469d4', textDecoration: 'none', fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
-    message: { 
-      padding: '10px', 
-      borderRadius: '6px', 
-      marginBottom: '20px', 
-      fontSize: '13px', 
-      textAlign: 'center', 
-      backgroundColor: message.type === 'success' ? '#e3f9e5' : '#fff1f0', 
-      color: message.type === 'success' ? '#1f7a28' : '#cf1322',
-      display: message.text ? 'block' : 'none' 
-    }
+    message: { padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center', 
+               backgroundColor: message.type === 'success' ? '#e3f9e5' : '#fff1f0', 
+               color: message.type === 'success' ? '#1f7a28' : '#cf1322',
+               display: message.text ? 'block' : 'none' }
   };
 
   return (
@@ -102,7 +135,6 @@ function MyProfile() {
           </div>
         </div>
 
-        {/* Naprawiony podwójny atrybut style w tym divie */}
         <div style={{ ...styles.section, borderBottom: 'none' }}>
           <h2 style={styles.sectionTitle}>Statystyki Nalotu</h2>
           <div style={styles.row}>
