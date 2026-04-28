@@ -50,9 +50,13 @@ public class AuthController {
         String jwtToken = jwtService.generateToken(userDetails);
 
         return ResponseEntity.ok(new AuthResponse(
-                jwtToken,
-                user.getUserRole().name(),
-                user.getLogin()
+        jwtToken,
+        user.getUserRole().name(),
+        user.getLogin(),
+        user.getId(),
+        user.getName(),
+        user.getSurname(),
+        user.getPhoneNumber()
         ));
     }
 }
