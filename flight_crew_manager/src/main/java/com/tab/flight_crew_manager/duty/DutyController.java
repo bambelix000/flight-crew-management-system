@@ -24,13 +24,12 @@ public class DutyController {
     public ResponseEntity<String> assignUserToDuty(
             @PathVariable Long dutyId,
             @PathVariable Long userId,
-            @RequestParam RoleOnDuty role) { // Przekazujemy rolę w parametrze URL, np. ?role=CAPTAIN
+            @RequestParam RoleOnDuty role) {
 
         try {
             dutyService.assignUserToDuty(userId, dutyId, role);
             return ResponseEntity.ok("Użytkownik został pomyślnie przypisany do służby.");
         } catch (IllegalStateException e) {
-            // Przechwytujemy nasz wyjątek z limitami FTL i zwracamy status 400 Bad Request
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
