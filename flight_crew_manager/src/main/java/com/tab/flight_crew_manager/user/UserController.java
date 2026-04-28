@@ -1,11 +1,13 @@
 package com.tab.flight_crew_manager.user;
 
-import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.AuthResponse;
+import com.tab.flight_crew_manager.security.JwtService;
+import com.tab.flight_crew_manager.user.dto.LoginRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/users")
@@ -13,12 +15,6 @@ import java.security.Principal;
 public class UserController {
     private final UserService userService;
 
-    @GetMapping("/my-stats")
-    public ResponseEntity<StatsData> getMyStats(Principal principal) {
 
-        StatsData stats = userService.getStats(principal);
-
-        return ResponseEntity.ok(stats);
-    }
 
 }

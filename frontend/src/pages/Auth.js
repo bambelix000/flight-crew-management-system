@@ -35,13 +35,14 @@ function Auth() {
         localStorage.setItem('token', authResponse.token);
         
         // Zapisujemy podstawowe dane usera (żeby mieć co wyświetlić w Dashboardzie)
+        // Zastąp stary wpis localStorage w handleLogin:
         localStorage.setItem('user', JSON.stringify({
+            id: authResponse.id,
             login: authResponse.login,
             userRole: authResponse.role,
-            // Tymczasowe puste wartości, docelowo backend powinien zwracać pełne statystyki usera,
-            // lub Dashboard powinien je pobrać osobnym endpointem GET /users/me
-            name: authResponse.login, 
-            surname: '',
+            name: authResponse.name,
+            surname: authResponse.surname,
+            phoneNumber: authResponse.phoneNumber,
             twentyDaysAirTime: 0,
             annualAirTime: 0
         }));
