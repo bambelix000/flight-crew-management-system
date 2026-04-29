@@ -1,6 +1,7 @@
 package com.tab.flight_crew_manager.user;
 
 import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,11 +35,16 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByLogin(userLogin);
 
         if(userOptional.isEmpty()){
-            throw new IllegalArgumentException("nie znany user");
+            throw new IllegalArgumentException("nieznany user");
         }
         User user = userOptional.get();
 
         StatsData stats = new StatsData();
+
+        stats.setName(user.getName());
+        stats.setSurname(user.getSurname());
+        stats.setPhoneNumber(user.getPhoneNumber());
+
         stats.setAnnualAirTime(user.getAnnualAirTime());
         stats.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes());
         stats.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes());
@@ -48,9 +54,10 @@ public class UserService {
         return stats;
     }
 
-    public void updateUser(Long id, User updatedData) {
+    public void updateUser(Long id, UserUpdateDto updatedData) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Użytkownik nie istnieje"));
+
         user.setName(updatedData.getName());
         user.setSurname(updatedData.getSurname());
         user.setLogin(updatedData.getLogin());
@@ -59,8 +66,8 @@ public class UserService {
         userRepository.save(user);
     }
 
-    public void updatePhone(Long id, String newPhone) {
-        User user = userRepository.findById(id)
+    public void updatePhone(Principal principal, String newPhone) {
+        User user = userRepository.findByLogin(principal.getName())
                 .orElseThrow(() -> new IllegalStateException("Użytkownik nie istnieje"));
         user.setPhoneNumber(newPhone);
         userRepository.save(user);

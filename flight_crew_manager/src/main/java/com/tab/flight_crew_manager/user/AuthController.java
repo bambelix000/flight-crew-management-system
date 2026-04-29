@@ -52,11 +52,7 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(
         jwtToken,
         user.getUserRole().name(),
-        user.getLogin(),
-        user.getId(),
-        user.getName(),
-        user.getSurname(),
-        user.getPhoneNumber()
+        user.getLogin()
         ));
     }
 }

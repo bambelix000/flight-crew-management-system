@@ -1,14 +1,12 @@
 package com.tab.flight_crew_manager.user;
 
-import com.tab.flight_crew_manager.user.dto.AuthResponse;
-import com.tab.flight_crew_manager.security.JwtService;
-import com.tab.flight_crew_manager.user.dto.LoginRequest;
+
+import com.tab.flight_crew_manager.user.dto.PhoneUpdateDto;
 import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -29,15 +27,17 @@ public class UserController {
 
     @PreAuthorize("hasAuthority('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateUser(@PathVariable Long id, @RequestBody User user) {
-        userService.updateUser(id, user);
+    public ResponseEntity<Void> updateUser(@PathVariable Long id, @RequestBody UserUpdateDto updateDto) {
+        userService.updateUser(id, updateDto);
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/{id}/phone")
-    public ResponseEntity<Void> updateMyPhone(@PathVariable Long id, @RequestBody Map<String, String> payload) {
-        String newPhone = payload.get("phoneNumber");
-        userService.updatePhone(id, newPhone);
+    @PutMapping("/update-phone")
+    public ResponseEntity<Void> updateMyPhone(Principal principal, @RequestBody PhoneUpdateDto request) {
+        if (request.getPhoneNumber() == null || request.getPhoneNumber().trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        userService.updatePhone(principal, request.getPhoneNumber());
         return ResponseEntity.ok().build();
     }
 

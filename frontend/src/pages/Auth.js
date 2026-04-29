@@ -21,7 +21,6 @@ function Auth() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // UWAGA: Zmieniony URL na /auth/login
       const res = await fetch('http://localhost:8080/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,17 +33,10 @@ function Auth() {
         // Zapisujemy token JWT do pamięci przeglądarki
         localStorage.setItem('token', authResponse.token);
         
-        // Zapisujemy podstawowe dane usera (żeby mieć co wyświetlić w Dashboardzie)
-        // Zastąp stary wpis localStorage w handleLogin:
+        // Zapisujemy TYLKO to, co przyszło z nowego AuthResponse
         localStorage.setItem('user', JSON.stringify({
-            id: authResponse.id,
             login: authResponse.login,
-            userRole: authResponse.role,
-            name: authResponse.name,
-            surname: authResponse.surname,
-            phoneNumber: authResponse.phoneNumber,
-            twentyDaysAirTime: 0,
-            annualAirTime: 0
+            userRole: authResponse.role
         }));
         
         navigate('/dashboard'); 
@@ -59,7 +51,6 @@ function Auth() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      // UWAGA: Zmieniony URL na /auth/register
       const res = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

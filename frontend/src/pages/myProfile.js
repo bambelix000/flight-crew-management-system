@@ -18,11 +18,10 @@ function MyProfile() {
     
     const parsedUser = JSON.parse(savedData);
 
-    // Zamiast ufać starym danym z pamięci przeglądarki, pobieramy najświeższe z bazy!
-    fetch(`http://localhost:8080/users/${parsedUser.id}`, {
+    // Aby pobrać statystyki, uderzamy do Twojego bezpiecznego endpointu:
+    fetch(`http://localhost:8080/users/my-stats`, {
       method: 'GET',
       headers: { 
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}` 
       }
     })
@@ -30,19 +29,20 @@ function MyProfile() {
         if (!res.ok) throw new Error("Błąd pobierania");
         return res.json();
       })
-      .then(freshUserData => {
-        // Ustawiamy w profilu świeże dane prosto z serwera (w tym godziny lotu!)
-        setUser(freshUserData);
-        setNewPhone(freshUserData.phoneNumber || '');
+      .then(statsData => {
+        setUser({ ...parsedUser, ...statsData });
+        // Uwaga: Jeśli endpoint my-stats nie zwraca phoneNumber,
+        // nowe uaktualnienie telefonu będzie puste na start.
+        setNewPhone(statsData.phoneNumber || ''); 
       })
       .catch(err => {
         console.error(err);
-        setMessage({ text: 'Nie udało się pobrać najnowszych statystyk.', type: 'error' });
+        setMessage({ text: 'Nie udało się pobrać statystyk z serwera.', type: 'error' });
       });
 
   }, [navigate]);
+
   const handleUpdate = async () => {
-    // Prawidłowe pobieranie tokenu z Auth.js
     const token = localStorage.getItem('token'); 
 
     if (!token) {
@@ -50,25 +50,20 @@ function MyProfile() {
       return;
     }
 
-    if (!user.id) {
-      setMessage({ text: 'Błąd: Twój system logowania nie pobrał ID użytkownika z serwera!', type: 'error' });
-      return;
-    }
-
     try {
-      const res = await fetch(`http://localhost:8080/users/${user.id}/phone`, {
+      // UWAGA: Nowy, bezpieczny endpoint stworzony przez Ciebie! Brak przekazywania ID.
+      const res = await fetch(`http://localhost:8080/users/update-phone`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ phoneNumber: newPhone })
+        body: JSON.stringify({ phoneNumber: newPhone }) // Przekazujemy w formacie JSON dla wygody Springa
       });
 
       if (res.ok) {
         const updatedUser = { ...user, phoneNumber: newPhone };
         setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser)); // Zapisz nowy numer, by nie zniknął po odświeżeniu
         setMessage({ text: 'Numer telefonu zaktualizowany pomyślnie!', type: 'success' });
       } else {
         setMessage({ text: `Serwer odrzucił zmianę (Kod błędu: ${res.status})`, type: 'error' });
@@ -100,7 +95,7 @@ function MyProfile() {
                display: message.text ? 'block' : 'none' }
   };
 
-  return (
+return (
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.header}>
@@ -139,11 +134,11 @@ function MyProfile() {
           <h2 style={styles.sectionTitle}>Statystyki Nalotu</h2>
           <div style={styles.row}>
             <span style={styles.label}>Ostatnie 20 dni</span>
-            <span style={styles.value}>{Math.floor(user.twentyDaysAirTime / 60)}h / 90h</span>
+            <span style={styles.value}>{Math.floor((user.twentyDaysAirTime || 0) / 60)}h / 90h</span>
           </div>
           <div style={styles.row}>
             <span style={styles.label}>Rok kalendarzowy</span>
-            <span style={styles.value}>{Math.floor(user.annualAirTime / 60)}h / 900h</span>
+            <span style={styles.value}>{Math.floor((user.annualAirTime || 0) / 60)}h / 900h</span>
           </div>
         </div>
 

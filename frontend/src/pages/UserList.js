@@ -53,21 +53,30 @@ function UserList() {
   };
 
   // Zapisywanie zmian w okienku
-  const handleSave = async (e) => {
-    e.preventDefault(); // Zapobiega przeładowaniu strony
+const handleSave = async (e) => {
+    e.preventDefault(); 
     try {
+      // Budujemy dedykowany payload pasujący 1:1 do Twojego UserUpdateDto w Javie
+      const updatePayload = {
+        name: editingUser.name,
+        surname: editingUser.surname,
+        login: editingUser.login,
+        phoneNumber: editingUser.phoneNumber,
+        userRole: editingUser.userRole
+      };
+
       const res = await fetch(`http://localhost:8080/users/${editingUser.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(editingUser)
+        body: JSON.stringify(updatePayload) // <--- Wysyłamy czysty payload, bez śmieci
       });
       
       if (res.ok) {
-        handleCloseModal(); // Zamknij modal
-        fetchData(); // Odśwież tabelę, żeby pokazać nowe dane
+        handleCloseModal(); 
+        fetchData(); 
       } else {
         alert('Wystąpił błąd podczas zapisywania zmian na serwerze.');
       }
