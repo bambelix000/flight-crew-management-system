@@ -1,6 +1,7 @@
 package com.tab.flight_crew_manager.flight;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.tab.flight_crew_manager.airport.Airport;
 import com.tab.flight_crew_manager.duty.Duty;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,9 +23,12 @@ public class Flight {
 
     private String flightNumber;
 
-    // Lotniska na razie string pozniej bedzie encja airport
-    private String departureAirport;
-    private String arrivalAirport;
+    @ManyToOne
+    @JoinColumn(name = "departure_airport_id")
+    private Airport departureAirport;
+    @ManyToOne
+    @JoinColumn(name = "arrival_airport_id")
+    private Airport arrivalAirport;
 
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;

@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AuthResponse {
     private String token;
-    private String role; // Przydatne dla frontendu!
+    private String role;
     private String login;
 }

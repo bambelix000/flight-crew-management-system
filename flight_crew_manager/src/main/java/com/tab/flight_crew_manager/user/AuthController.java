@@ -30,8 +30,6 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest loginRequest) {
-        // 1. Spring Security automatycznie sprawdza, czy login i zahasłowane hasło się zgadzają
-        // Jeśli coś jest nie tak, ta metoda rzuci wyjątek BadCredentialsException (status 403/401)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getLogin(),
@@ -39,12 +37,9 @@ public class AuthController {
                 )
         );
 
-        // 2. Jeśli doszliśmy tutaj, to znaczy że hasło jest na 100% poprawne.
-        // Pobieramy użytkownika z bazy, żeby mieć dostęp do jego danych (np. Roli)
         User user = userRepository.findByLogin(loginRequest.getLogin())
                 .orElseThrow();
 
-        // 3. Konwertujemy naszego Usera na UserDetails (tak jak zrobiliśmy w CustomUserDetailsService)
         org.springframework.security.core.userdetails.UserDetails userDetails =
                 org.springframework.security.core.userdetails.User.builder()
                         .username(user.getLogin())
@@ -52,14 +47,12 @@ public class AuthController {
                         .authorities(user.getUserRole().name())
                         .build();
 
-        // 4. Generujemy token JWT
         String jwtToken = jwtService.generateToken(userDetails);
 
-        // 5. Zwracamy piękny obiekt JSON dla frontendu
         return ResponseEntity.ok(new AuthResponse(
-                jwtToken,
-                user.getUserRole().name(),
-                user.getLogin()
+        jwtToken,
+        user.getUserRole().name(),
+        user.getLogin()
         ));
     }
 }
