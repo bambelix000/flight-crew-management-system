@@ -70,10 +70,33 @@ public class DutyService {
     }
 
 
+
     @Transactional
     public void assignUserToDuty(Long userId, Long dutyId, RoleOnDuty role) {
         User user = userRepository.findById(userId).orElseThrow();
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
+
+        for (CrewAssignment existingAssignment : user.getAssignments()) {
+            Duty existingDuty = existingAssignment.getDuty();
+
+            if (!(duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime()) ||
+                    duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime()))) {
+                throw new IllegalStateException("BLOKADA: Wykryto nakładanie się służb w czasie!");
+            }
+
+            if (duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime())) {
+                long hoursBetween = Duration.between(existingDuty.getDutyEndTime(), duty.getDutyStartTime()).toHours();
+                if (hoursBetween < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku. Odstęp wynosi tylko " + hoursBetween + "h po poprzedniej służbie!");
+                }
+            }
+            else if (duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime())) {
+                long hoursBetween = Duration.between(duty.getDutyEndTime(), existingDuty.getDutyStartTime()).toHours();
+                if (hoursBetween < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku przed kolejną zaplanowaną służbą!");
+                }
+            }
+        }
 
         int planned20DaysAirTime = user.getTwentyDaysAirTime() + duty.getAirTimeMinutes();
         int plannedAnnualAirTime = user.getAnnualAirTime() + duty.getAirTimeMinutes();
@@ -91,7 +114,6 @@ public class DutyService {
 
         CrewAssignment assignment = new CrewAssignment(user, duty, role);
         assignmentRepository.save(assignment);
-
     }
 
     public List<DutyDto> getAllDuties() {

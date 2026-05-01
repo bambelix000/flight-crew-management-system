@@ -9,7 +9,16 @@ function Dashboard() {
   const [duties, setDuties] = useState([]);
   const [selectedFlights, setSelectedFlights] = useState([]);
   const [expandedDutyId, setExpandedDutyId] = useState(null);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignDutyId, setAssignDutyId] = useState(null);
+  const [usersList, setUsersList] = useState([]);
+  const [assignUserId, setAssignUserId] = useState('');
+  const [assignRole, setAssignRole] = useState('CABIN_CREW');
+  const [assignError, setAssignError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -51,7 +60,8 @@ function Dashboard() {
       try {
         if (isScheduler) {
           const [resFlights, resDuties] = await Promise.all([
-            fetch('http://localhost:8080/flights', { headers: { 'Authorization': `Bearer ${token}` } }),
+            // Zmiana na nowy endpoint get
+            fetch('http://localhost:8080/flights/get', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('http://localhost:8080/duties', { headers: { 'Authorization': `Bearer ${token}` } })
           ]);
           if (resFlights.ok) setFlights(await resFlights.json());
@@ -64,7 +74,7 @@ function Dashboard() {
     };
 
     fetchTabData();
-  }, [activeTab, user]);
+  }, [activeTab, user, refreshKey]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -97,10 +107,79 @@ function Dashboard() {
         setIsModalOpen(false);
         setSelectedFlights([]);
         setActiveTab('createdDuties');
+        setRefreshKey(prev => prev + 1);
       } else {
         alert("Błąd podczas tworzenia służby");
       }
     } catch (err) {}
+  };
+
+  const openAssignModal = async (dutyId) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch('http://localhost:8080/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const allUsers = await res.json();
+        
+        const currentDuty = duties.find(d => d.id === dutyId);
+        const assignedIds = currentDuty?.assignedCrew?.map(crew => crew.userId) || [];
+        
+        const availableCrew = allUsers.filter(u => 
+          u.userRole === 'CREWMEMBER' && !assignedIds.includes(u.id)
+        );
+
+        setUsersList(availableCrew);
+        setAssignDutyId(dutyId);
+        setAssignUserId('');
+        setAssignRole('CABIN_CREW');
+        setAssignError('');
+        setIsAssignModalOpen(true);
+      }
+    } catch (err) {
+      alert("Nie udało się pobrać listy użytkowników.");
+    }
+  };
+
+  const handleAssignSubmit = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8080/duties/${assignDutyId}/assign`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          userId: parseInt(assignUserId),
+          role: assignRole
+        })
+      });
+      
+      if (res.ok) {
+        setIsAssignModalOpen(false);
+        setRefreshKey(prev => prev + 1);
+      } else {
+        // Wszechstronne wyciąganie treści błędu
+        const errorText = await res.text();
+        let finalErrorMsg = "Nie udało się przypisać użytkownika. Sprawdź logi na serwerze.";
+        
+        if (errorText) {
+          try {
+            // Próba odczytania JSON (np. domyślny format błędu Springa)
+            const errorJson = JSON.parse(errorText);
+            finalErrorMsg = errorJson.message || errorText;
+          } catch (e) {
+            // Jeśli to nie JSON, wyświetl surowy tekst zwrócony przez Springa
+            finalErrorMsg = errorText;
+          }
+        }
+        setAssignError(finalErrorMsg);
+      }
+    } catch (err) {
+      setAssignError("Wystąpił błąd sieci podczas komunikacji z serwerem.");
+    }
   };
 
   if (!user) return null;
@@ -142,11 +221,14 @@ function Dashboard() {
     dutyBlock: { border: '1px solid #edf2f7', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' },
     dutyHeader: { display: 'flex', justifyContent: 'space-between', padding: '16px', backgroundColor: '#f8f9fa', cursor: 'pointer', fontWeight: '600', color: '#2d3748' },
     dutyDetails: { padding: '16px', borderTop: '1px solid #edf2f7', backgroundColor: '#fff' },
-    detailsTitle: { margin: '10px 0 5px 0', fontSize: '14px', color: '#718096', textTransform: 'uppercase' },
+    detailsTitle: { margin: 0, fontSize: '14px', color: '#718096', textTransform: 'uppercase' },
     innerRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #edf2f7', fontSize: '14px' },
     badge: { backgroundColor: '#ebf4ff', color: '#3182ce', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' },
     modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalContent: { backgroundColor: 'white', padding: '32px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }
+    modalContent: { backgroundColor: 'white', padding: '32px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
+    selectInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', marginTop: '8px', backgroundColor: '#fff' },
+    assignButton: { padding: '6px 12px', fontSize: '12px', backgroundColor: '#fff', color: '#3182ce', border: '1px solid #3182ce', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
+    errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' }
   };
 
   return (
@@ -235,7 +317,7 @@ function Dashboard() {
                   <div key={duty.id} style={styles.dutyBlock}>
                     <div style={styles.dutyHeader} onClick={() => toggleDutyExpand(duty.id)}>
                       <span>Służba #{duty.id}</span>
-                      <span>Czas lotów: {Math.floor(duty.workTimeMinutes / 60)}h {duty.workTimeMinutes % 60}m</span>
+                      <span>Czas pracy: {Math.floor(duty.workTimeMinutes / 60)}h {duty.workTimeMinutes % 60}m</span>
                       <span>{expandedDutyId === duty.id ? '▲ Zwiń' : '▼ Rozwiń'}</span>
                     </div>
                     
@@ -252,7 +334,7 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <h4 style={styles.detailsTitle}>Loty w tej służbie:</h4>
+                        <h4 style={{ ...styles.detailsTitle, marginBottom: '10px' }}>Loty w tej służbie:</h4>
                         {duty.flights && duty.flights.map(flight => {
                           const fullFlight = flights.find(f => f.id === flight.id);
                           const depTime = fullFlight ? new Date(fullFlight.departureTime).toLocaleString('pl-PL') : '';
@@ -274,7 +356,15 @@ function Dashboard() {
                           );
                         })}
                         
-                        <h4 style={{ ...styles.detailsTitle, marginTop: '20px' }}>Przypisana Załoga:</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', marginBottom: '10px' }}>
+                          <h4 style={styles.detailsTitle}>Przypisana Załoga:</h4>
+                          {isScheduler && (
+                            <button onClick={() => openAssignModal(duty.id)} style={styles.assignButton}>
+                              + Przypisz pracownika
+                            </button>
+                          )}
+                        </div>
+
                         {(!duty.assignedCrew || duty.assignedCrew.length === 0) ? (
                           <p style={{ fontSize: '14px', color: '#a0aec0', margin: '5px 0' }}>Brak załogi</p>
                         ) : (
@@ -351,6 +441,64 @@ function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Anuluj</button>
               <button onClick={handleCreateDutySubmit} style={{ padding: '10px 20px', backgroundColor: '#38a169', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Zatwierdź służbę</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAssignModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={{ marginTop: 0, color: '#1a1f36', fontSize: '20px', marginBottom: '24px' }}>Przypisz do służby #{assignDutyId}</h2>
+            
+            {assignError && (
+              <div style={styles.errorMessage}>
+                {assignError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Wybierz pracownika:</label>
+              <select 
+                value={assignUserId} 
+                onChange={(e) => setAssignUserId(e.target.value)}
+                style={styles.selectInput}
+              >
+                <option value="" disabled>-- Wybierz pracownika --</option>
+                {usersList.length === 0 && (
+                  <option value="" disabled>Brak dostępnych pracowników</option>
+                )}
+                {usersList.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} {u.surname}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '32px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Wybierz rolę na służbie:</label>
+              <select 
+                value={assignRole} 
+                onChange={(e) => setAssignRole(e.target.value)}
+                style={styles.selectInput}
+              >
+                <option value="CAPTAIN">Kapitan (CAPTAIN)</option>
+                <option value="FIRST_OFFICER">Pierwszy Oficer (FIRST_OFFICER)</option>
+                <option value="CABIN_CREW">Personel Pokładowy (CABIN_CREW)</option>
+                <option value="INSTRUCTOR">Instruktor (INSTRUCTOR)</option>
+              </select>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => setIsAssignModalOpen(false)} style={{ padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Anuluj</button>
+              <button 
+                onClick={handleAssignSubmit} 
+                disabled={!assignUserId} 
+                style={{ padding: '10px 20px', backgroundColor: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', opacity: assignUserId ? 1 : 0.5 }}
+              >
+                Przypisz
+              </button>
             </div>
           </div>
         </div>

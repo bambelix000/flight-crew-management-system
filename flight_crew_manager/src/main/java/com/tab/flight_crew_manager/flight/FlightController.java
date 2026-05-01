@@ -1,9 +1,10 @@
 package com.tab.flight_crew_manager.flight;
 
+import com.tab.flight_crew_manager.flight.dto.FlightCreateDto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -11,10 +12,16 @@ import java.util.List;
 @RequestMapping("/flights")
 @RequiredArgsConstructor
 public class FlightController {
-    private final FlightRepository flightRepository;
+    private final FlightService flightService;
 
-    @GetMapping
+    @GetMapping("/get")
     public List<Flight> getAllFlights() {
-        return flightRepository.findAll();
+        return flightService.getFlights();
+    }
+
+    @PostMapping("/add")
+    public ResponseEntity<Flight> addFlight(@RequestBody FlightCreateDto request) {
+        Flight newFlight = flightService.addFlight(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newFlight);
     }
 }

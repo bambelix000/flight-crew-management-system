@@ -25,7 +25,7 @@ public class DutyController {
     }
 
     @PostMapping("/{dutyId}/assign")
-    public ResponseEntity<Void> assignUserToDuty(
+    public ResponseEntity<?> assignUserToDuty(
             @PathVariable Long dutyId,
             @RequestBody DutyAssignmentDto request) {
 
@@ -33,7 +33,7 @@ public class DutyController {
             dutyService.assignUserToDuty(request.getUserId(), dutyId, request.getRole());
             return ResponseEntity.ok().build();
         } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 

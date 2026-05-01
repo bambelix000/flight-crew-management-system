@@ -32,8 +32,8 @@ public class DataConfig {
                         "Kowalski",
                         "+48123456789"
                 );
-                jasiu.setTwentyDaysAirTime(4800);
-                jasiu.setAnnualAirTime(20000);
+                jasiu.setTwentyDaysAirTime(5340);
+                jasiu.setAnnualAirTime(54000);
                 userRepository.save(jasiu);
 
                 User stefan = new User(
