@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la C:\\\\\\\\Users\\\\\\\\Adam\\\\\\\\Desktop\\\\\\\\STUDIA\\\\\\\\SEM6\\\\\\\\TAB\\\\\\\\flight-crew-management-system\\\\\\\\.env)",
+      "Bash(ls C:\\\\Users\\\\Adam\\\\Desktop\\\\STUDIA\\\\SEM6\\\\TAB\\\\flight-crew-management-system\\\\flight_crew_manager\\\\src\\\\main\\\\resources\\\\ *)",
+      "PowerShell(docker compose version *)"
+    ]
+  }
+}
