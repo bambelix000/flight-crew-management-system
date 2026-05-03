@@ -3,147 +3,119 @@ import { useNavigate } from 'react-router-dom';
 
 function MyProfile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [newPhone, setNewPhone] = useState('');
-  const [message, setMessage] = useState({ text: '', type: '' });
+  const [userStats, setUserStats] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const savedData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
+    const savedData = localStorage.getItem('user');
     
-    if (!savedData || !token) {
+    if (!token || !savedData) {
       navigate('/');
       return;
     }
-    
-    const parsedUser = JSON.parse(savedData);
 
-    // Aby pobrać statystyki, uderzamy do Twojego bezpiecznego endpointu:
-    fetch(`http://localhost:8080/users/my-stats`, {
+    fetch('http://localhost:8080/users/my-stats', {
       method: 'GET',
-      headers: { 
-        'Authorization': `Bearer ${token}` 
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => {
-        if (!res.ok) throw new Error("Błąd pobierania");
+        if (!res.ok) throw new Error("Nie udało się pobrać statystyk.");
         return res.json();
       })
-      .then(statsData => {
-        setUser({ ...parsedUser, ...statsData });
-        // Uwaga: Jeśli endpoint my-stats nie zwraca phoneNumber,
-        // nowe uaktualnienie telefonu będzie puste na start.
-        setNewPhone(statsData.phoneNumber || ''); 
+      .then(data => {
+        const parsedUser = JSON.parse(savedData);
+        setUserStats({ ...parsedUser, ...data });
       })
-      .catch(err => {
-        console.error(err);
-        setMessage({ text: 'Nie udało się pobrać statystyk z serwera.', type: 'error' });
-      });
-
+      .catch(err => setError(err.message));
   }, [navigate]);
 
-  const handleUpdate = async () => {
-    const token = localStorage.getItem('token'); 
+  if (error) {
+    return <div style={{ padding: '40px', textAlign: 'center', color: '#c53030' }}>{error}</div>;
+  }
 
-    if (!token) {
-      setMessage({ text: 'Błąd sesji: Brak tokenu. Zaloguj się ponownie.', type: 'error' });
-      return;
-    }
-
-    try {
-      // UWAGA: Nowy, bezpieczny endpoint stworzony przez Ciebie! Brak przekazywania ID.
-      const res = await fetch(`http://localhost:8080/users/update-phone`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ phoneNumber: newPhone }) // Przekazujemy w formacie JSON dla wygody Springa
-      });
-
-      if (res.ok) {
-        const updatedUser = { ...user, phoneNumber: newPhone };
-        setUser(updatedUser);
-        setMessage({ text: 'Numer telefonu zaktualizowany pomyślnie!', type: 'success' });
-      } else {
-        setMessage({ text: `Serwer odrzucił zmianę (Kod błędu: ${res.status})`, type: 'error' });
-      }
-    } catch (err) {
-      setMessage({ text: 'Błąd połączenia z backendem.', type: 'error' });
-    }
-  };
-
-  if (!user) return null;
+  if (!userStats) return <div style={{ padding: '40px', textAlign: 'center' }}>Ładowanie profilu...</div>;
 
   const styles = {
-    page: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', fontFamily: '"Inter", sans-serif', padding: '20px' },
-    card: { backgroundColor: '#ffffff', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', width: '100%', maxWidth: '500px' },
-    header: { textAlign: 'center', marginBottom: '32px' },
-    title: { margin: '0 0 8px 0', color: '#1a1f36', fontSize: '28px', fontWeight: '700' },
-    badge: { display: 'inline-block', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: '#ebf4ff', color: '#3182ce', textTransform: 'uppercase' },
-    section: { marginBottom: '24px', borderBottom: '1px solid #edf2f7', paddingBottom: '16px' },
-    sectionTitle: { fontSize: '12px', color: '#718096', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' },
-    row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
-    label: { color: '#4f566b', fontSize: '14px' },
-    value: { color: '#1a1f36', fontSize: '14px', fontWeight: '500' },
-    input: { padding: '8px 12px', border: '1px solid #dcdfe4', borderRadius: '6px', fontSize: '14px', width: '200px', outline: 'none', transition: 'border-color 0.2s' },
-    button: { width: '100%', padding: '12px', backgroundColor: '#5469d4', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px', transition: 'all 0.2s' },
-    backLink: { display: 'block', textAlign: 'center', color: '#5469d4', textDecoration: 'none', fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
-    message: { padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center', 
-               backgroundColor: message.type === 'success' ? '#e3f9e5' : '#fff1f0', 
-               color: message.type === 'success' ? '#1f7a28' : '#cf1322',
-               display: message.text ? 'block' : 'none' }
+    container: { padding: '40px', fontFamily: '"Inter", sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+    card: { backgroundColor: '#fff', padding: '32px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', width: '100%', maxWidth: '900px', marginBottom: '24px' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', width: '100%', maxWidth: '900px' },
+    title: { fontSize: '24px', color: '#1a1f36', margin: 0 },
+    backButton: { padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff', fontWeight: '600', color: '#4a5568' },
+    profileInfo: { display: 'flex', alignItems: 'center', gap: '20px', borderBottom: '1px solid #edf2f7', paddingBottom: '24px', marginBottom: '24px' },
+    avatar: { width: '80px', height: '80px', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', fontWeight: 'bold' },
+    userName: { fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#2d3748' },
+    roleBadge: { backgroundColor: '#e6fffa', color: '#285e61', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' },
+    statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' },
+    statBox: { padding: '24px', borderRadius: '12px', textAlign: 'center' },
+    statTitle: { fontSize: '14px', margin: '0 0 12px 0', textTransform: 'uppercase', fontWeight: 'bold' },
+    statValue: { fontSize: '32px', fontWeight: 'bold', margin: 0 }
   };
 
-return (
-    <div style={styles.page}>
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <h1 style={styles.title}>Mój Profil</h1>
+        <button onClick={() => navigate('/dashboard')} style={styles.backButton}>Powrót do Dashboardu</button>
+      </header>
+
       <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>Mój Profil</h1>
-          <span style={styles.badge}>{user.userRole}</span>
-        </div>
-
-        <div style={styles.message}>{message.text}</div>
-
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Dane stałe</h2>
-          <div style={styles.row}>
-            <span style={styles.label}>Imię i Nazwisko</span>
-            <span style={styles.value}>{user.name} {user.surname}</span>
+        <div style={styles.profileInfo}>
+          <div style={styles.avatar}>
+            {userStats.login ? userStats.login.charAt(0).toUpperCase() : '?'}
           </div>
-          <div style={styles.row}>
-            <span style={styles.label}>Login</span>
-            <span style={styles.value}>{user.login}</span>
+          <div>
+            <h2 style={styles.userName}>{userStats.login}</h2>
+            <span style={styles.roleBadge}>{userStats.userRole}</span>
           </div>
         </div>
 
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Dane kontaktowe</h2>
-          <div style={styles.row}>
-            <span style={styles.label}>Numer telefonu</span>
-            <input 
-              style={styles.input} 
-              type="text" 
-              value={newPhone} 
-              onChange={(e) => setNewPhone(e.target.value)} 
-            />
+        <h3 style={{ fontSize: '18px', color: '#4a5568', marginBottom: '20px' }}>Podsumowanie Lotów i Służb</h3>
+        
+        <div style={styles.statsGrid}>
+          <div style={{ ...styles.statBox, backgroundColor: '#ebf4ff' }}>
+            <h4 style={{ ...styles.statTitle, color: '#2b6cb0' }}>Ilość Służb</h4>
+            <p style={{ ...styles.statValue, color: '#1a365d' }}>{userStats.totalDutiesCount || 0}</p>
+          </div>
+
+          <div style={{ ...styles.statBox, backgroundColor: '#e6fffa' }}>
+            <h4 style={{ ...styles.statTitle, color: '#285e61' }}>Czas Pracy Total</h4>
+            <p style={{ ...styles.statValue, color: '#234e52' }}>
+              {Math.floor((userStats.totalWorkTimeMinutes || 0) / 60)}h {(userStats.totalWorkTimeMinutes || 0) % 60}m
+            </p>
+          </div>
+
+          <div style={{ ...styles.statBox, backgroundColor: '#fefeb6' }}>
+            <h4 style={{ ...styles.statTitle, color: '#744210' }}>Najczęstsza Rola</h4>
+            <p style={{ ...styles.statValue, color: '#744210', fontSize: '24px' }}>
+              {userStats.mostFrequentRole || 'Brak lotów'}
+            </p>
+          </div>
+
+          <div style={{ ...styles.statBox, backgroundColor: '#fff5f5' }}>
+            <h4 style={{ ...styles.statTitle, color: '#c53030' }}>Zgłoszone Incapacity</h4>
+            <p style={{ ...styles.statValue, color: '#742a2a' }}>{userStats.incapacityCounter || 0}</p>
           </div>
         </div>
 
-        <div style={{ ...styles.section, borderBottom: 'none' }}>
-          <h2 style={styles.sectionTitle}>Statystyki Nalotu</h2>
-          <div style={styles.row}>
-            <span style={styles.label}>Ostatnie 20 dni</span>
-            <span style={styles.value}>{Math.floor((user.twentyDaysAirTime || 0) / 60)}h / 90h</span>
+        <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL)</h3>
+        
+        <div style={styles.statsGrid}>
+          <div style={{ ...styles.statBox, border: '1px solid #edf2f7' }}>
+            <h4 style={{ ...styles.statTitle, color: '#718096' }}>Ostatnie 20 dni</h4>
+            <p style={{ ...styles.statValue, color: '#2d3748' }}>
+              {Math.floor((userStats.twentyDaysAirTime || 0) / 60)}h / 90h
+            </p>
           </div>
-          <div style={styles.row}>
-            <span style={styles.label}>Rok kalendarzowy</span>
-            <span style={styles.value}>{Math.floor((user.annualAirTime || 0) / 60)}h / 900h</span>
+
+          <div style={{ ...styles.statBox, border: '1px solid #edf2f7' }}>
+            <h4 style={{ ...styles.statTitle, color: '#718096' }}>Rok kalendarzowy</h4>
+            <p style={{ ...styles.statValue, color: '#2d3748' }}>
+              {Math.floor((userStats.annualAirTime || 0) / 60)}h / 900h
+            </p>
           </div>
         </div>
 
-        <button style={styles.button} onClick={handleUpdate}>Zapisz zmiany</button>
-        <div style={styles.backLink} onClick={() => navigate('/dashboard')}>Wróć do Dashboardu</div>
       </div>
     </div>
   );

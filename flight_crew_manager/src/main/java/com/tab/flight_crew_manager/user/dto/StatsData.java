@@ -13,4 +13,5 @@ public class StatsData {
     private Integer totalWorkTimeMinutes;
     private Integer totalDutyTimeMinutes;
     private Integer totalAirBorneTimeMinutes;
+    private int incapacityCounter;
 }

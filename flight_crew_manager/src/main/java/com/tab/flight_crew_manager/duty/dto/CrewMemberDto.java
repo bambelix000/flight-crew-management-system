@@ -11,4 +11,5 @@ public class CrewMemberDto {
     private String name;
     private String surname;
     private String roleOnDuty;
+    private String status;
 }

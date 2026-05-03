@@ -35,6 +35,9 @@ public class CrewAssignment {
     @Column(nullable = false)
     private RoleOnDuty roleOnDuty;
 
+    @Enumerated(EnumType.STRING)
+    private AssignmentStatus status = AssignmentStatus.PENDING;
+
     public CrewAssignment(User user, Duty duty, RoleOnDuty roleOnDuty) {
         this.user = user;
         this.duty = duty;

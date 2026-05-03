@@ -1,5 +1,6 @@
 package com.tab.flight_crew_manager.duty;
 
+import com.tab.flight_crew_manager.crew_assignment.AssignmentStatus;
 import com.tab.flight_crew_manager.crew_assignment.CrewAssignment;
 import com.tab.flight_crew_manager.crew_assignment.CrewAssignmentRepository;
 import com.tab.flight_crew_manager.duty.dto.CrewMemberDto;
@@ -77,6 +78,10 @@ public class DutyService {
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
 
         for (CrewAssignment existingAssignment : user.getAssignments()) {
+
+            if (existingAssignment.getStatus() == AssignmentStatus.REJECTED) {
+                continue;
+            }
             Duty existingDuty = existingAssignment.getDuty();
 
             if (!(duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime()) ||
@@ -133,6 +138,7 @@ public class DutyService {
 
     private DutyDto mapToDto(Duty duty) {
         DutyDto dto = new DutyDto();
+
         dto.setId(duty.getId());
         dto.setDutyStartTime(duty.getDutyStartTime());
         dto.setDutyEndTime(duty.getDutyEndTime());
@@ -152,11 +158,59 @@ public class DutyService {
                         assignment.getUser().getId(),
                         assignment.getUser().getName(),
                         assignment.getUser().getSurname(),
-                        assignment.getRoleOnDuty().name()
+                        assignment.getRoleOnDuty().name(),
+                        assignment.getStatus().name()
                 ))
                 .collect(Collectors.toList()));
 
         return dto;
     }
 
+    public void acceptDuty(String login, Long dutyId) {
+        User user = userRepository.findByLogin(login).orElseThrow();
+
+        CrewAssignment assignment = user.getAssignments().stream()
+                .filter(a -> a.getDuty().getId().equals(dutyId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Nie jesteś przypisany do tej służby."));
+
+        assignment.setStatus(AssignmentStatus.ACCEPTED);
+        assignmentRepository.save(assignment);
+    }
+    @Transactional
+    public void reportIncapacity(String login, Long dutyId) {
+        User user = userRepository.findByLogin(login).orElseThrow();
+        Duty duty = dutyRepository.findById(dutyId).orElseThrow();
+
+        CrewAssignment assignment = user.getAssignments().stream()
+                .filter(a -> a.getDuty().getId().equals(dutyId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Nie jesteś przypisany do tej służby."));
+
+        user.setTwentyDaysAirTime(user.getTwentyDaysAirTime() - duty.getAirTimeMinutes());
+        user.setAnnualAirTime(user.getAnnualAirTime() - duty.getAirTimeMinutes());
+
+        user.setIncapacityCounter(user.getIncapacityCounter() + 1);
+
+        userRepository.save(user);
+        assignment.setStatus(AssignmentStatus.REJECTED);
+        assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public void removeUserFromDuty(Long userId, Long dutyId) {
+        User user = userRepository.findById(userId).orElseThrow();
+        Duty duty = dutyRepository.findById(dutyId).orElseThrow();
+
+        CrewAssignment assignment = user.getAssignments().stream()
+                .filter(a -> a.getDuty().getId().equals(dutyId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Użytkownik nie jest przypisany do tej służby."));
+
+        user.getAssignments().remove(assignment);
+        duty.getAssignments().remove(assignment);
+
+        userRepository.save(user);
+        assignmentRepository.delete(assignment);
+    }
 }
