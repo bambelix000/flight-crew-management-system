@@ -2,8 +2,11 @@ package com.tab.flight_crew_manager.duty;
 
 import com.tab.flight_crew_manager.crew_assignment.CrewAssignment;
 import com.tab.flight_crew_manager.crew_assignment.CrewAssignmentRepository;
+import com.tab.flight_crew_manager.duty.dto.CrewMemberDto;
+import com.tab.flight_crew_manager.duty.dto.DutyDto;
 import com.tab.flight_crew_manager.flight.Flight;
 import com.tab.flight_crew_manager.flight.FlightRepository;
+import com.tab.flight_crew_manager.flight.dto.FlightSummaryDto;
 import com.tab.flight_crew_manager.user.User;
 import com.tab.flight_crew_manager.user.UserRepository;
 import jakarta.transaction.Transactional;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class DutyService {
@@ -66,10 +70,33 @@ public class DutyService {
     }
 
 
+
     @Transactional
     public void assignUserToDuty(Long userId, Long dutyId, RoleOnDuty role) {
         User user = userRepository.findById(userId).orElseThrow();
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
+
+        for (CrewAssignment existingAssignment : user.getAssignments()) {
+            Duty existingDuty = existingAssignment.getDuty();
+
+            if (!(duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime()) ||
+                    duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime()))) {
+                throw new IllegalStateException("BLOKADA: Wykryto nakładanie się służb w czasie!");
+            }
+
+            if (duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime())) {
+                long hoursBetween = Duration.between(existingDuty.getDutyEndTime(), duty.getDutyStartTime()).toHours();
+                if (hoursBetween < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku. Odstęp wynosi tylko " + hoursBetween + "h po poprzedniej służbie!");
+                }
+            }
+            else if (duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime())) {
+                long hoursBetween = Duration.between(duty.getDutyEndTime(), existingDuty.getDutyStartTime()).toHours();
+                if (hoursBetween < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku przed kolejną zaplanowaną służbą!");
+                }
+            }
+        }
 
         int planned20DaysAirTime = user.getTwentyDaysAirTime() + duty.getAirTimeMinutes();
         int plannedAnnualAirTime = user.getAnnualAirTime() + duty.getAirTimeMinutes();
@@ -87,9 +114,49 @@ public class DutyService {
 
         CrewAssignment assignment = new CrewAssignment(user, duty, role);
         assignmentRepository.save(assignment);
-
     }
 
+    public List<DutyDto> getAllDuties() {
+        return dutyRepository.findAll().stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
 
+    public List<DutyDto> getMyDuties(String login) {
+        User user = userRepository.findByLogin(login)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono usera: " + login));
+
+        return user.getAssignments().stream()
+                .map(assignment -> mapToDto(assignment.getDuty()))
+                .collect(Collectors.toList());
+    }
+
+    private DutyDto mapToDto(Duty duty) {
+        DutyDto dto = new DutyDto();
+        dto.setId(duty.getId());
+        dto.setDutyStartTime(duty.getDutyStartTime());
+        dto.setDutyEndTime(duty.getDutyEndTime());
+        dto.setWorkTimeMinutes(duty.getWorkTimeMinutes());
+        dto.setAirTimeMinutes(duty.getAirTimeMinutes());
+
+        dto.setFlights(duty.getFlights().stream()
+                .map(f -> new FlightSummaryDto(
+                        f.getId(),
+                        f.getFlightNumber(),
+                        f.getDepartureAirport().getAirportCode() + " - " + f.getArrivalAirport().getAirportCode()
+                ))
+                .collect(Collectors.toList()));
+
+        dto.setAssignedCrew(duty.getAssignments().stream()
+                .map(assignment -> new CrewMemberDto(
+                        assignment.getUser().getId(),
+                        assignment.getUser().getName(),
+                        assignment.getUser().getSurname(),
+                        assignment.getRoleOnDuty().name()
+                ))
+                .collect(Collectors.toList()));
+
+        return dto;
+    }
 
 }

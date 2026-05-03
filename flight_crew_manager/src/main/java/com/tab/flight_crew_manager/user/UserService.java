@@ -1,8 +1,14 @@
 package com.tab.flight_crew_manager.user;
 
+import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.security.Principal;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -23,9 +29,61 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    public StatsData getStats(Principal principal) {
+        String userLogin = principal.getName();
+
+        Optional<User> userOptional = userRepository.findByLogin(userLogin);
+
+        if(userOptional.isEmpty()){
+            throw new IllegalArgumentException("nieznany user");
+        }
+        User user = userOptional.get();
+
+        StatsData stats = new StatsData();
+
+        stats.setName(user.getName());
+        stats.setSurname(user.getSurname());
+        stats.setPhoneNumber(user.getPhoneNumber());
+
+        stats.setAnnualAirTime(user.getAnnualAirTime());
+        stats.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes());
+        stats.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes());
+        stats.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes());
+        stats.setTwentyDaysAirTime(user.getTwentyDaysAirTime());
+
+        return stats;
+    }
+
+    public void updateUser(Long id, UserUpdateDto updatedData) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Użytkownik nie istnieje"));
+
+        user.setName(updatedData.getName());
+        user.setSurname(updatedData.getSurname());
+        user.setLogin(updatedData.getLogin());
+        user.setPhoneNumber(updatedData.getPhoneNumber());
+        user.setUserRole(updatedData.getUserRole());
+        userRepository.save(user);
+    }
+
+    public void updatePhone(Principal principal, String newPhone) {
+        User user = userRepository.findByLogin(principal.getName())
+                .orElseThrow(() -> new IllegalStateException("Użytkownik nie istnieje"));
+        user.setPhoneNumber(newPhone);
+        userRepository.save(user);
+    }
+
     public User login(String login, String password) {
         return userRepository.findByLogin(login)
                 .filter(u -> u.getPassword().equals(password))
                 .orElseThrow(() -> new IllegalStateException("Błędny login lub hasło"));
+    }
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User getUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Nie znaleziono użytkownika"));
     }
 }
