@@ -20,6 +20,11 @@ function Dashboard() {
   const [assignRole, setAssignRole] = useState('CABIN_CREW');
   const [assignError, setAssignError] = useState('');
 
+  // STANY DLA FILTRÓW
+  const [filterFlightNo, setFilterFlightNo] = useState('');
+  const [filterDepAirport, setFilterDepAirport] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc'); // asc = najstarsze, desc = najnowsze
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const savedData = localStorage.getItem('user'); 
@@ -123,7 +128,8 @@ function Dashboard() {
         const allUsers = await res.json();
         
         const currentDuty = duties.find(d => d.id === dutyId);
-        const assignedIds = currentDuty?.assignedCrew?.map(crew => crew.userId) || [];
+        // Pobieramy ID przypisanych pracowników (pomijając odrzuconych, by można było przypisać kogoś innego)
+        const assignedIds = currentDuty?.assignedCrew?.filter(c => c.status !== 'REJECTED').map(crew => crew.userId) || [];
         
         const availableCrew = allUsers.filter(u => 
           u.userRole === 'CREWMEMBER' && !assignedIds.includes(u.id)
@@ -156,18 +162,22 @@ function Dashboard() {
         })
       });
       
+      const resText = await res.text();
+
       if (res.ok) {
+        if (resText.includes("WARNING_LIMIT")) {
+          window.alert("⚠️ UWAGA SCHEDULER: Użytkownik został przypisany, ale brakuje mu MNIEJ NIŻ 5 GODZIN do przekroczenia prawnych limitów czasu lotu (FTL).");
+        }
         setIsAssignModalOpen(false);
         setRefreshKey(prev => prev + 1);
       } else {
-        const errorText = await res.text();
         let finalErrorMsg = "Nie udało się przypisać użytkownika. Sprawdź logi na serwerze.";
-        if (errorText) {
+        if (resText) {
           try {
-            const errorJson = JSON.parse(errorText);
-            finalErrorMsg = errorJson.message || errorText;
+            const errorJson = JSON.parse(resText);
+            finalErrorMsg = errorJson.message || resText;
           } catch (e) {
-            finalErrorMsg = errorText;
+            finalErrorMsg = resText;
           }
         }
         setAssignError(finalErrorMsg);
@@ -178,17 +188,28 @@ function Dashboard() {
   };
 
   const handleDutyAction = async (dutyId, action) => {
-    const confirmMessage = action === 'accept' 
-      ? "Potwierdzasz przyjęcie tej służby?" 
-      : "UWAGA: Odrzucenie służby zostanie odnotowane jako niedyspozycja (Incapacity). Kontynuować?";
+    let payload = {};
+    if (action === 'accept') {
+      if (!window.confirm("Potwierdzasz przyjęcie tej służby?")) return;
+    } else if (action === 'reject') {
+      const reason = window.prompt("UWAGA: Odrzucenie służby zostanie odnotowane jako niedyspozycja (Incapacity). Podaj powód odrzucenia:");
+      if (reason === null) return; 
+      if (reason.trim() === "") {
+        alert("Musisz podać powód odrzucenia służby!");
+        return;
+      }
+      payload = { reason: reason };
+    }
     
-    if (!window.confirm(confirmMessage)) return;
-
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`http://localhost:8080/duties/${dutyId}/${action}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setRefreshKey(prev => prev + 1);
@@ -237,7 +258,21 @@ function Dashboard() {
   const assignedFlightIds = duties.flatMap(d => (d.flights || []).map(f => f.id));
   const unassignedFlights = flights.filter(f => !assignedFlightIds.includes(f.id));
   
-  const targetFlightsList = activeTab === 'unassigned' ? unassignedFlights : flights;
+  // LOGIKA FILTROWANIA I SORTOWANIA
+  let targetFlightsList = activeTab === 'unassigned' ? unassignedFlights : flights;
+  
+  targetFlightsList = targetFlightsList.filter(f => {
+    const matchNo = f.flightNumber.toLowerCase().includes(filterFlightNo.toLowerCase());
+    const matchDep = (f.departureAirport?.airportCode || '').toLowerCase().includes(filterDepAirport.toLowerCase());
+    return matchNo && matchDep;
+  });
+
+  targetFlightsList.sort((a, b) => {
+    const timeA = new Date(a.departureTime).getTime();
+    const timeB = new Date(b.departureTime).getTime();
+    return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+  });
+
   const selectedFlightsData = flights.filter(f => selectedFlights.includes(f.id));
 
   let previewStartTime = '';
@@ -255,6 +290,11 @@ function Dashboard() {
     const endObj = new Date(lastFlight.arrivalTime);
     previewEndTime = endObj.toLocaleString('pl-PL');
   }
+
+  // OSTRZEŻENIE FTL (< 5h) DLA CREWMEMBERA
+  const limitNearing20 = user.twentyDaysAirTime >= 5100;
+  const limitNearing365 = user.annualAirTime >= 53700;
+  const showWarning = !isScheduler && (limitNearing20 || limitNearing365);
 
   const styles = {
     container: { padding: '40px', fontFamily: '"Inter", sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh' },
@@ -277,7 +317,8 @@ function Dashboard() {
     assignButton: { padding: '6px 12px', fontSize: '12px', backgroundColor: '#fff', color: '#3182ce', border: '1px solid #3182ce', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
     errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' },
     actionBtn: { flex: 1, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none', textAlign: 'center', transition: '0.2s' },
-    removeBtn: { padding: '4px 8px', marginLeft: '10px', backgroundColor: '#fff5f5', color: '#c53030', border: '1px solid #feb2b2', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }
+    removeBtn: { padding: '4px 8px', marginLeft: '10px', backgroundColor: '#fff5f5', color: '#c53030', border: '1px solid #feb2b2', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' },
+    filterInput: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }
   };
 
   return (
@@ -315,8 +356,40 @@ function Dashboard() {
             )}
           </div>
 
+          {showWarning && (
+            <div style={{ backgroundColor: '#fed7d7', color: '#9b2c2c', padding: '16px', borderRadius: '8px', fontWeight: 'bold', marginBottom: '20px' }}>
+              ⚠️ UWAGA FTL: Zbliżasz się do limitów czasu lotu. Zostało Ci mniej niż 5 godzin zaplanowanego lotu.
+            </div>
+          )}
+
           {(activeTab === 'unassigned' || activeTab === 'allFlights') && (
             <>
+              {/* SEKCJA FILTRÓW */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '8px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Filtruj Nr Lotu (np. LO)" 
+                  value={filterFlightNo} 
+                  onChange={(e) => setFilterFlightNo(e.target.value)} 
+                  style={styles.filterInput} 
+                />
+                <input 
+                  type="text" 
+                  placeholder="Skąd (Lotnisko, np. WAW)" 
+                  value={filterDepAirport} 
+                  onChange={(e) => setFilterDepAirport(e.target.value)} 
+                  style={styles.filterInput} 
+                />
+                <select 
+                  value={sortOrder} 
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  style={styles.filterInput}
+                >
+                  <option value="asc">Data: Od Najstarszych</option>
+                  <option value="desc">Data: Od Najnowszych</option>
+                </select>
+              </div>
+
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -343,6 +416,11 @@ function Dashboard() {
                       <td style={styles.td}>{f.durationMinutes} min</td>
                     </tr>
                   ))}
+                  {targetFlightsList.length === 0 && (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>Brak lotów spełniających kryteria.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
 
@@ -448,7 +526,7 @@ function Dashboard() {
                           <p style={{ fontSize: '14px', color: '#a0aec0', margin: '5px 0' }}>Brak załogi</p>
                         ) : (
                           duty.assignedCrew.map(crew => (
-                            <div key={crew.userId} style={styles.innerRow}>
+                            <div key={crew.userId} style={{ ...styles.innerRow, flexWrap: 'wrap' }}>
                               <span>{crew.name} {crew.surname}</span>
                               <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <span style={styles.badge}>{crew.roleOnDuty}</span>
@@ -466,6 +544,11 @@ function Dashboard() {
                                   </button>
                                 )}
                               </div>
+                              {isScheduler && crew.status === 'REJECTED' && crew.rejectionReason && (
+                                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#c53030', backgroundColor: '#fff5f5', padding: '6px', borderRadius: '4px' }}>
+                                  <strong>Powód odrzucenia:</strong> {crew.rejectionReason}
+                                </div>
+                              )}
                             </div>
                           ))
                         )}
@@ -494,7 +577,7 @@ function Dashboard() {
 
                             {isRejected && (
                               <div style={{ padding: '12px', backgroundColor: '#fed7d7', color: '#9b2c2c', borderRadius: '8px', fontWeight: 'bold', textAlign: 'center' }}>
-                                Służba odrzucona. Zostałeś z niej wypisany.
+                                Służba odrzucona. Oczekuje na rozwiązanie przez Schedulera.
                               </div>
                             )}
                           </div>
@@ -516,17 +599,19 @@ function Dashboard() {
             <span style={{ ...styles.status, backgroundColor: '#ebf4ff', color: '#3182ce' }}>{user.userRole}</span>
           </div>
 
-          <div style={styles.card}>
-            <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Czas lotu (FTL)</h3>
-            <div style={{ marginBottom: '12px' }}>
-              <p style={{ fontSize: '12px', color: '#718096' }}>Ostatnie 20 dni</p>
-              <p style={{ fontWeight: '700' }}>{Math.floor((user.twentyDaysAirTime || 0) / 60)}h / 90h</p>
+          {!isScheduler && (
+            <div style={{ ...styles.card, border: showWarning ? '2px solid #feb2b2' : 'none' }}>
+              <h3 style={{ fontSize: '16px', marginBottom: '16px', color: showWarning ? '#c53030' : '#1a1f36' }}>Czas lotu (FTL)</h3>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={{ fontSize: '12px', color: '#718096' }}>Ostatnie 20 dni</p>
+                <p style={{ fontWeight: '700', color: limitNearing20 ? '#c53030' : '#1a1f36' }}>{Math.floor((user.twentyDaysAirTime || 0) / 60)}h / 90h</p>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', color: '#718096' }}>Rok kalendarzowy</p>
+                <p style={{ fontWeight: '700', color: limitNearing365 ? '#c53030' : '#1a1f36' }}>{Math.floor((user.annualAirTime || 0) / 60)}h / 900h</p>
+              </div>
             </div>
-            <div>
-              <p style={{ fontSize: '12px', color: '#718096' }}>Rok kalendarzowy</p>
-              <p style={{ fontWeight: '700' }}>{Math.floor((user.annualAirTime || 0) / 60)}h / 900h</p>
-            </div>
-          </div>
+          )}
         </aside>
       </div>
 

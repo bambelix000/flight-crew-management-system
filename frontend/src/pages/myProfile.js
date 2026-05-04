@@ -36,6 +36,12 @@ function MyProfile() {
 
   if (!userStats) return <div style={{ padding: '40px', textAlign: 'center' }}>Ładowanie profilu...</div>;
 
+  const isScheduler = userStats.userRole === 'SCHEDULER' || userStats.userRole === 'ADMIN';
+
+  const limitNearing20 = userStats.twentyDaysAirTime >= 5100;
+  const limitNearing365 = userStats.annualAirTime >= 53700;
+  const showWarning = !isScheduler && (limitNearing20 || limitNearing365);
+
   const styles = {
     container: { padding: '40px', fontFamily: '"Inter", sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' },
     card: { backgroundColor: '#fff', padding: '32px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', width: '100%', maxWidth: '900px', marginBottom: '24px' },
@@ -49,7 +55,8 @@ function MyProfile() {
     statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' },
     statBox: { padding: '24px', borderRadius: '12px', textAlign: 'center' },
     statTitle: { fontSize: '14px', margin: '0 0 12px 0', textTransform: 'uppercase', fontWeight: 'bold' },
-    statValue: { fontSize: '32px', fontWeight: 'bold', margin: 0 }
+    statValue: { fontSize: '32px', fontWeight: 'bold', margin: 0 },
+    warningBanner: { backgroundColor: '#fed7d7', color: '#9b2c2c', padding: '16px', borderRadius: '8px', fontWeight: 'bold', marginBottom: '24px', textAlign: 'center' }
   };
 
   return (
@@ -60,6 +67,12 @@ function MyProfile() {
       </header>
 
       <div style={styles.card}>
+        {showWarning && (
+          <div style={styles.warningBanner}>
+            ⚠️ UWAGA FTL: Zbliżasz się do nieprzekraczalnych limitów czasu lotu. Zostało Ci mniej niż 5 godzin zaplanowanego lotu.
+          </div>
+        )}
+
         <div style={styles.profileInfo}>
           <div style={styles.avatar}>
             {userStats.login ? userStats.login.charAt(0).toUpperCase() : '?'}
@@ -98,23 +111,27 @@ function MyProfile() {
           </div>
         </div>
 
-        <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL)</h3>
-        
-        <div style={styles.statsGrid}>
-          <div style={{ ...styles.statBox, border: '1px solid #edf2f7' }}>
-            <h4 style={{ ...styles.statTitle, color: '#718096' }}>Ostatnie 20 dni</h4>
-            <p style={{ ...styles.statValue, color: '#2d3748' }}>
-              {Math.floor((userStats.twentyDaysAirTime || 0) / 60)}h / 90h
-            </p>
-          </div>
+        {!isScheduler && (
+          <>
+            <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL)</h3>
+            
+            <div style={styles.statsGrid}>
+              <div style={{ ...styles.statBox, border: limitNearing20 ? '2px solid #feb2b2' : '1px solid #edf2f7' }}>
+                <h4 style={{ ...styles.statTitle, color: '#718096' }}>Ostatnie 20 dni</h4>
+                <p style={{ ...styles.statValue, color: limitNearing20 ? '#c53030' : '#2d3748' }}>
+                  {Math.floor((userStats.twentyDaysAirTime || 0) / 60)}h / 90h
+                </p>
+              </div>
 
-          <div style={{ ...styles.statBox, border: '1px solid #edf2f7' }}>
-            <h4 style={{ ...styles.statTitle, color: '#718096' }}>Rok kalendarzowy</h4>
-            <p style={{ ...styles.statValue, color: '#2d3748' }}>
-              {Math.floor((userStats.annualAirTime || 0) / 60)}h / 900h
-            </p>
-          </div>
-        </div>
+              <div style={{ ...styles.statBox, border: limitNearing365 ? '2px solid #feb2b2' : '1px solid #edf2f7' }}>
+                <h4 style={{ ...styles.statTitle, color: '#718096' }}>Rok kalendarzowy</h4>
+                <p style={{ ...styles.statValue, color: limitNearing365 ? '#c53030' : '#2d3748' }}>
+                  {Math.floor((userStats.annualAirTime || 0) / 60)}h / 900h
+                </p>
+              </div>
+            </div>
+          </>
+        )}
 
       </div>
     </div>
