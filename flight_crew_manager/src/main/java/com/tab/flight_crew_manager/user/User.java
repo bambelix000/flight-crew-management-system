@@ -34,6 +34,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CrewAssignment> assignments = new ArrayList<>();
 
+    @Column(name = "incapacity_counter")
+    private int incapacityCounter = 0;
+
     public User(UserRole userRole, String login, String password, String name, String surname, String phoneNumber) {
         this.userRole = userRole;
         this.login = login;

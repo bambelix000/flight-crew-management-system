@@ -60,7 +60,6 @@ function Dashboard() {
       try {
         if (isScheduler) {
           const [resFlights, resDuties] = await Promise.all([
-            // Zmiana na nowy endpoint get
             fetch('http://localhost:8080/flights/get', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('http://localhost:8080/duties', { headers: { 'Authorization': `Bearer ${token}` } })
           ]);
@@ -161,17 +160,13 @@ function Dashboard() {
         setIsAssignModalOpen(false);
         setRefreshKey(prev => prev + 1);
       } else {
-        // Wszechstronne wyciąganie treści błędu
         const errorText = await res.text();
         let finalErrorMsg = "Nie udało się przypisać użytkownika. Sprawdź logi na serwerze.";
-        
         if (errorText) {
           try {
-            // Próba odczytania JSON (np. domyślny format błędu Springa)
             const errorJson = JSON.parse(errorText);
             finalErrorMsg = errorJson.message || errorText;
           } catch (e) {
-            // Jeśli to nie JSON, wyświetl surowy tekst zwrócony przez Springa
             finalErrorMsg = errorText;
           }
         }
@@ -179,6 +174,59 @@ function Dashboard() {
       }
     } catch (err) {
       setAssignError("Wystąpił błąd sieci podczas komunikacji z serwerem.");
+    }
+  };
+
+  const handleDutyAction = async (dutyId, action) => {
+    const confirmMessage = action === 'accept' 
+      ? "Potwierdzasz przyjęcie tej służby?" 
+      : "UWAGA: Odrzucenie służby zostanie odnotowane jako niedyspozycja (Incapacity). Kontynuować?";
+    
+    if (!window.confirm(confirmMessage)) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8080/duties/${dutyId}/${action}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setRefreshKey(prev => prev + 1);
+      } else {
+        const errorText = await res.text();
+        alert("Błąd: " + errorText);
+      }
+    } catch (err) {
+      alert("Wystąpił błąd komunikacji z serwerem.");
+    }
+  };
+
+  const handleRemoveCrewMember = async (dutyId, userId, userName) => {
+    if (!window.confirm(`Czy na pewno chcesz usunąć pracownika ${userName} z tej służby?`)) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8080/duties/${dutyId}/crew/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setRefreshKey(prev => prev + 1);
+      } else {
+        const errorText = await res.text();
+        alert("Nie udało się usunąć: " + errorText);
+      }
+    } catch (err) {
+      alert("Błąd połączenia z serwerem.");
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => {
+    switch(status) {
+      case 'PENDING': return { backgroundColor: '#feebc8', color: '#dd6b20' };
+      case 'ACCEPTED': return { backgroundColor: '#c6f6d5', color: '#2f855a' };
+      case 'REJECTED': return { backgroundColor: '#fed7d7', color: '#c53030' };
+      default: return { backgroundColor: '#edf2f7', color: '#4a5568' };
     }
   };
 
@@ -219,16 +267,17 @@ function Dashboard() {
     tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', color: '#718096', cursor: 'pointer', fontSize: '16px', fontWeight: '600' },
     activeTab: { padding: '10px 20px', border: 'none', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '700' },
     dutyBlock: { border: '1px solid #edf2f7', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' },
-    dutyHeader: { display: 'flex', justifyContent: 'space-between', padding: '16px', backgroundColor: '#f8f9fa', cursor: 'pointer', fontWeight: '600', color: '#2d3748' },
     dutyDetails: { padding: '16px', borderTop: '1px solid #edf2f7', backgroundColor: '#fff' },
     detailsTitle: { margin: 0, fontSize: '14px', color: '#718096', textTransform: 'uppercase' },
-    innerRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #edf2f7', fontSize: '14px' },
+    innerRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #edf2f7', fontSize: '14px', alignItems: 'center' },
     badge: { backgroundColor: '#ebf4ff', color: '#3182ce', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' },
     modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
     modalContent: { backgroundColor: 'white', padding: '32px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
     selectInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', marginTop: '8px', backgroundColor: '#fff' },
     assignButton: { padding: '6px 12px', fontSize: '12px', backgroundColor: '#fff', color: '#3182ce', border: '1px solid #3182ce', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
-    errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' }
+    errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' },
+    actionBtn: { flex: 1, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none', textAlign: 'center', transition: '0.2s' },
+    removeBtn: { padding: '4px 8px', marginLeft: '10px', backgroundColor: '#fff5f5', color: '#c53030', border: '1px solid #feb2b2', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }
   };
 
   return (
@@ -313,11 +362,41 @@ function Dashboard() {
               {duties.length === 0 ? (
                 <p style={{ color: '#718096', padding: '20px 0' }}>Brak przypisanych służb.</p>
               ) : (
-                duties.map(duty => (
-                  <div key={duty.id} style={styles.dutyBlock}>
-                    <div style={styles.dutyHeader} onClick={() => toggleDutyExpand(duty.id)}>
-                      <span>Służba #{duty.id}</span>
-                      <span>Czas pracy: {Math.floor(duty.workTimeMinutes / 60)}h {duty.workTimeMinutes % 60}m</span>
+                duties.map(duty => {
+                  
+                  const myAssignment = duty.assignedCrew?.find(c => c.name.toLowerCase() === user.name?.toLowerCase() && c.surname.toLowerCase() === user.surname?.toLowerCase());
+                  const myStatus = myAssignment?.status; 
+
+                  const isPending = !isScheduler && myStatus === 'PENDING';
+                  const isRejected = !isScheduler && myStatus === 'REJECTED';
+                  const isAccepted = !isScheduler && myStatus === 'ACCEPTED';
+
+                  let blockStyle = { ...styles.dutyBlock };
+                  let headerBg = '#f8f9fa';
+                  let headerColor = '#2d3748';
+                  let statusText = '';
+
+                  if (isPending) {
+                    blockStyle.border = '1px solid #fbd38d';
+                    headerBg = '#fffff0';
+                    headerColor = '#dd6b20';
+                    statusText = ' (WYMAGA AKCEPTACJI)';
+                  } else if (isRejected) {
+                    blockStyle.border = '1px solid #feb2b2';
+                    headerBg = '#fff5f5';
+                    headerColor = '#c53030';
+                    statusText = ' (ODRZUCONA)';
+                  } else if (isAccepted) {
+                    blockStyle.border = '1px solid #9ae6b4';
+                    headerBg = '#f0fff4';
+                    headerColor = '#2f855a';
+                  }
+
+                  return (
+                  <div key={duty.id} style={blockStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', backgroundColor: headerBg, cursor: 'pointer', fontWeight: '600', color: headerColor }} onClick={() => toggleDutyExpand(duty.id)}>
+                      <span>Służba #{duty.id}{statusText}</span>
+                      <span>Czas lotów: {Math.floor(duty.workTimeMinutes / 60)}h {duty.workTimeMinutes % 60}m</span>
                       <span>{expandedDutyId === duty.id ? '▲ Zwiń' : '▼ Rozwiń'}</span>
                     </div>
                     
@@ -371,14 +450,60 @@ function Dashboard() {
                           duty.assignedCrew.map(crew => (
                             <div key={crew.userId} style={styles.innerRow}>
                               <span>{crew.name} {crew.surname}</span>
-                              <span style={styles.badge}>{crew.roleOnDuty}</span>
+                              <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={styles.badge}>{crew.roleOnDuty}</span>
+                                {isScheduler && crew.status && (
+                                  <span style={{ ...styles.badge, ...getStatusBadgeStyle(crew.status), marginLeft: '8px' }}>
+                                    {crew.status}
+                                  </span>
+                                )}
+                                {isScheduler && (
+                                  <button 
+                                    style={styles.removeBtn} 
+                                    onClick={() => handleRemoveCrewMember(duty.id, crew.userId, `${crew.name} ${crew.surname}`)}
+                                  >
+                                    ✕ Usuń
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           ))
+                        )}
+
+                        {!isScheduler && activeTab === 'myDuties' && (
+                          <div style={{ marginTop: '24px' }}>
+                            {isPending && (
+                              <div style={{ display: 'flex', gap: '12px' }}>
+                                <button style={{ ...styles.actionBtn, backgroundColor: '#c6f6d5', color: '#2f855a' }} onClick={() => handleDutyAction(duty.id, 'accept')}>
+                                  ✓ Akceptuję służbę
+                                </button>
+                                <button style={{ ...styles.actionBtn, backgroundColor: '#fed7d7', color: '#c53030' }} onClick={() => handleDutyAction(duty.id, 'reject')}>
+                                  ✗ Odrzucam (Incapacity)
+                                </button>
+                              </div>
+                            )}
+
+                            {isAccepted && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                                <span style={{ color: '#285e61', fontWeight: 'bold' }}>Służba została przez Ciebie zaakceptowana.</span>
+                                <button style={{ ...styles.actionBtn, backgroundColor: '#fff5f5', color: '#c53030', width: '100%', border: '1px solid #feb2b2' }} onClick={() => handleDutyAction(duty.id, 'reject')}>
+                                  Zgłoś nagłą niedyspozycję
+                                </button>
+                              </div>
+                            )}
+
+                            {isRejected && (
+                              <div style={{ padding: '12px', backgroundColor: '#fed7d7', color: '#9b2c2c', borderRadius: '8px', fontWeight: 'bold', textAlign: 'center' }}>
+                                Służba odrzucona. Zostałeś z niej wypisany.
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           )}

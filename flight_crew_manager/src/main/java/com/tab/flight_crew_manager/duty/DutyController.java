@@ -37,6 +37,26 @@ public class DutyController {
         }
     }
 
+    @PostMapping("/{dutyId}/accept")
+    public ResponseEntity<?> acceptDuty(@PathVariable Long dutyId, Principal principal) {
+        try {
+            dutyService.acceptDuty(principal.getName(), dutyId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{dutyId}/reject")
+    public ResponseEntity<?> reportIncapacity(@PathVariable Long dutyId, Principal principal) {
+        try {
+            dutyService.reportIncapacity(principal.getName(), dutyId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
     @GetMapping("/my-duties")
     public ResponseEntity<List<DutyDto>> getMyDuties(Principal principal) {
         String login = principal.getName();
@@ -47,5 +67,15 @@ public class DutyController {
     @GetMapping
     public ResponseEntity<List<DutyDto>> getAllDuties() {
         return ResponseEntity.ok(dutyService.getAllDuties());
+    }
+
+    @DeleteMapping("/{dutyId}/crew/{userId}")
+    public ResponseEntity<?> removeUserFromDuty(@PathVariable Long dutyId, @PathVariable Long userId) {
+        try {
+            dutyService.removeUserFromDuty(userId, dutyId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 }

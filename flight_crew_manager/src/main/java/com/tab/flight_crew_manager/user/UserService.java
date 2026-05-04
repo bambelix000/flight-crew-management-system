@@ -50,6 +50,7 @@ public class UserService {
         stats.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes());
         stats.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes());
         stats.setTwentyDaysAirTime(user.getTwentyDaysAirTime());
+        stats.setIncapacityCounter(user.getIncapacityCounter());
 
         return stats;
     }
