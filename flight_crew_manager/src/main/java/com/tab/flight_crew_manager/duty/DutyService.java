@@ -67,7 +67,7 @@ public class DutyService {
             savedDuty.addFlight(flight);
         }
 
-        return dutyRepository.save(savedDuty); // Aktualizujemy z przypisanymi lotami
+        return dutyRepository.save(savedDuty); 
     }
 
 

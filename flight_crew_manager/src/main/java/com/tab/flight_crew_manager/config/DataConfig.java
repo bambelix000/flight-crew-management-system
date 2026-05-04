@@ -59,8 +59,7 @@ public class DataConfig {
                 userRepository.save(mirek);
             }
             if (airportRepository.count() == 0) {
-                // Zakładam, że konstruktor Airport przyjmuje np. (Kod IATA, Nazwa, Miasto, Kraj)
-                // Dostosuj to do swojego konstruktora w klasie Airport!
+
                 Airport waw = new Airport("WAW", "Chopin Airport", "Warsaw", "Poland");
                 Airport lhr = new Airport("LHR", "Heathrow Airport", "London", "UK");
                 Airport jfk = new Airport("JFK", "John F. Kennedy", "New York", "USA");

@@ -24,4 +24,10 @@ public class FlightController {
         Flight newFlight = flightService.addFlight(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(newFlight);
     }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<List<Flight>> addMultipleFlights(@RequestBody List<FlightCreateDto> requests) {
+        List<Flight> savedFlights = flightService.addMultipleFlights(requests);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedFlights);
+    }
 }
