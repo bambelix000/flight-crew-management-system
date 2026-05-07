@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CrewMemberDto {
     private Long userId;
+    private String login;
     private String name;
     private String surname;
     private String roleOnDuty;

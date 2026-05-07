@@ -86,12 +86,12 @@ public class DutyService {
                 throw new IllegalStateException("BLOKADA: Nakładanie się służb!");
             }
             if (duty.getDutyStartTime().isAfter(d.getDutyEndTime())) {
-                if (java.time.Duration.between(d.getDutyEndTime(), duty.getDutyStartTime()).toHours() < 20) {
-                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku po poprzedniej służbie.");
+                if (java.time.Duration.between(d.getDutyEndTime(), duty.getDutyStartTime()).toHours() < 12) {
+                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku po poprzedniej służbie.");
                 }
             } else if (duty.getDutyEndTime().isBefore(d.getDutyStartTime())) {
-                if (java.time.Duration.between(duty.getDutyEndTime(), d.getDutyStartTime()).toHours() < 20) {
-                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku przed kolejną służbą.");
+                if (java.time.Duration.between(duty.getDutyEndTime(), d.getDutyStartTime()).toHours() < 12) {
+                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku przed kolejną służbą.");
                 }
             }
         }
@@ -144,7 +144,7 @@ public class DutyService {
         dto.setWorkTimeMinutes(duty.getWorkTimeMinutes());
         dto.setAirTimeMinutes(duty.getAirTimeMinutes());
         dto.setFlights(duty.getFlights().stream().map(f -> new FlightSummaryDto(f.getId(), f.getFlightNumber(), f.getDepartureAirport().getAirportCode() + " - " + f.getArrivalAirport().getAirportCode())).collect(Collectors.toList()));
-        dto.setAssignedCrew(duty.getAssignments().stream().map(a -> new CrewMemberDto(a.getUser().getId(), a.getUser().getName(), a.getUser().getSurname(), a.getRoleOnDuty().name(), a.getStatus().name(), a.getRejectionReason())).collect(Collectors.toList()));
+        dto.setAssignedCrew(duty.getAssignments().stream().map(a -> new CrewMemberDto(a.getUser().getId(), a.getUser().getLogin(), a.getUser().getName(), a.getUser().getSurname(), a.getRoleOnDuty().name(), a.getStatus().name(), a.getRejectionReason())).collect(Collectors.toList()));
         return dto;
     }
 

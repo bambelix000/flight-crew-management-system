@@ -6,7 +6,7 @@ import com.tab.flight_crew_manager.flight.Flight;
 import com.tab.flight_crew_manager.flight.FlightRepository;
 import com.tab.flight_crew_manager.user.User;
 import com.tab.flight_crew_manager.user.UserRepository;
-import com.tab.flight_crew_manager.user.UserRole; // Upewnij się, że masz ten import
+import com.tab.flight_crew_manager.user.UserRole;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,8 +32,7 @@ public class DataConfig {
                         "Kowalski",
                         "+48123456789"
                 );
-                jasiu.setTwentyDaysAirTime(5340);
-                jasiu.setAnnualAirTime(54000);
+
                 userRepository.save(jasiu);
 
                 User stefan = new User(
@@ -44,8 +43,7 @@ public class DataConfig {
                         "Burczymucha",
                         "+48123321123"
                 );
-                stefan.setTwentyDaysAirTime(2400);
-                stefan.setAnnualAirTime(12000);
+
                 userRepository.save(stefan);
 
                 User mirek = new User(
@@ -59,8 +57,7 @@ public class DataConfig {
                 userRepository.save(mirek);
             }
             if (airportRepository.count() == 0) {
-                // Zakładam, że konstruktor Airport przyjmuje np. (Kod IATA, Nazwa, Miasto, Kraj)
-                // Dostosuj to do swojego konstruktora w klasie Airport!
+
                 Airport waw = new Airport("WAW", "Chopin Airport", "Warsaw", "Poland");
                 Airport lhr = new Airport("LHR", "Heathrow Airport", "London", "UK");
                 Airport jfk = new Airport("JFK", "John F. Kennedy", "New York", "USA");

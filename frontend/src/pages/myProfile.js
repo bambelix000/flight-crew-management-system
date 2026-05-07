@@ -48,7 +48,7 @@ function MyProfile() {
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', width: '100%', maxWidth: '900px' },
     title: { fontSize: '24px', color: '#1a1f36', margin: 0 },
     backButton: { padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff', fontWeight: '600', color: '#4a5568' },
-    profileInfo: { display: 'flex', alignItems: 'center', gap: '20px', borderBottom: '1px solid #edf2f7', paddingBottom: '24px', marginBottom: '24px' },
+    profileInfo: { display: 'flex', alignItems: 'center', gap: '20px', borderBottom: isScheduler ? 'none' : '1px solid #edf2f7', paddingBottom: isScheduler ? '0' : '24px', marginBottom: isScheduler ? '0' : '24px' },
     avatar: { width: '80px', height: '80px', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', fontWeight: 'bold' },
     userName: { fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#2d3748' },
     roleBadge: { backgroundColor: '#e6fffa', color: '#285e61', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' },
@@ -83,36 +83,37 @@ function MyProfile() {
           </div>
         </div>
 
-        <h3 style={{ fontSize: '18px', color: '#4a5568', marginBottom: '20px' }}>Podsumowanie Lotów i Służb</h3>
-        
-        <div style={styles.statsGrid}>
-          <div style={{ ...styles.statBox, backgroundColor: '#ebf4ff' }}>
-            <h4 style={{ ...styles.statTitle, color: '#2b6cb0' }}>Ilość Służb</h4>
-            <p style={{ ...styles.statValue, color: '#1a365d' }}>{userStats.totalDutiesCount || 0}</p>
-          </div>
-
-          <div style={{ ...styles.statBox, backgroundColor: '#e6fffa' }}>
-            <h4 style={{ ...styles.statTitle, color: '#285e61' }}>Czas Pracy Total</h4>
-            <p style={{ ...styles.statValue, color: '#234e52' }}>
-              {Math.floor((userStats.totalWorkTimeMinutes || 0) / 60)}h {(userStats.totalWorkTimeMinutes || 0) % 60}m
-            </p>
-          </div>
-
-          <div style={{ ...styles.statBox, backgroundColor: '#fefeb6' }}>
-            <h4 style={{ ...styles.statTitle, color: '#744210' }}>Najczęstsza Rola</h4>
-            <p style={{ ...styles.statValue, color: '#744210', fontSize: '24px' }}>
-              {userStats.mostFrequentRole || 'Brak lotów'}
-            </p>
-          </div>
-
-          <div style={{ ...styles.statBox, backgroundColor: '#fff5f5' }}>
-            <h4 style={{ ...styles.statTitle, color: '#c53030' }}>Zgłoszone Incapacity</h4>
-            <p style={{ ...styles.statValue, color: '#742a2a' }}>{userStats.incapacityCounter || 0}</p>
-          </div>
-        </div>
-
+        {/* POKAZUJEMY STATYSTYKI TYLKO PRACOWNIKOM LOTNICZYM */}
         {!isScheduler && (
           <>
+            <h3 style={{ fontSize: '18px', color: '#4a5568', marginBottom: '20px' }}>Podsumowanie Lotów i Służb</h3>
+            
+            <div style={styles.statsGrid}>
+              <div style={{ ...styles.statBox, backgroundColor: '#ebf4ff' }}>
+                <h4 style={{ ...styles.statTitle, color: '#2b6cb0' }}>Ilość Służb</h4>
+                <p style={{ ...styles.statValue, color: '#1a365d' }}>{userStats.totalDutiesCount || 0}</p>
+              </div>
+
+              <div style={{ ...styles.statBox, backgroundColor: '#e6fffa' }}>
+                <h4 style={{ ...styles.statTitle, color: '#285e61' }}>Czas Pracy Total</h4>
+                <p style={{ ...styles.statValue, color: '#234e52' }}>
+                  {Math.floor((userStats.totalWorkTimeMinutes || 0) / 60)}h {(userStats.totalWorkTimeMinutes || 0) % 60}m
+                </p>
+              </div>
+
+              <div style={{ ...styles.statBox, backgroundColor: '#fefeb6' }}>
+                <h4 style={{ ...styles.statTitle, color: '#744210' }}>Najczęstsza Rola</h4>
+                <p style={{ ...styles.statValue, color: '#744210', fontSize: '24px' }}>
+                  {userStats.mostFrequentRole || 'Brak lotów'}
+                </p>
+              </div>
+
+              <div style={{ ...styles.statBox, backgroundColor: '#fff5f5' }}>
+                <h4 style={{ ...styles.statTitle, color: '#c53030' }}>Zgłoszone Incapacity</h4>
+                <p style={{ ...styles.statValue, color: '#742a2a' }}>{userStats.incapacityCounter || 0}</p>
+              </div>
+            </div>
+
             <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL)</h3>
             
             <div style={styles.statsGrid}>

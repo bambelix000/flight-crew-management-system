@@ -1,5 +1,8 @@
 package com.tab.flight_crew_manager.user;
 
+import com.tab.flight_crew_manager.crew_assignment.AssignmentStatus;
+import com.tab.flight_crew_manager.crew_assignment.CrewAssignment;
+import com.tab.flight_crew_manager.duty.Duty;
 import com.tab.flight_crew_manager.user.dto.StatsData;
 import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,29 +34,51 @@ public class UserService {
     }
 
     public StatsData getStats(Principal principal) {
-        String userLogin = principal.getName();
+        String login = principal.getName();
+        User user = userRepository.findByLogin(login).orElseThrow();
+        LocalDateTime now = LocalDateTime.now();
 
-        Optional<User> userOptional = userRepository.findByLogin(userLogin);
+        StatsData dto = new StatsData();
 
-        if(userOptional.isEmpty()){
-            throw new IllegalArgumentException("nieznany user");
-        }
-        User user = userOptional.get();
+        dto.setId(user.getId());
+        int rolling20Days = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .map(CrewAssignment::getDuty)
+                .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(20)))
+                .mapToInt(Duty::getAirTimeMinutes)
+                .sum();
 
-        StatsData stats = new StatsData();
+        int rolling365Days = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .map(CrewAssignment::getDuty)
+                .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(365)))
+                .mapToInt(Duty::getAirTimeMinutes)
+                .sum();
 
-        stats.setName(user.getName());
-        stats.setSurname(user.getSurname());
-        stats.setPhoneNumber(user.getPhoneNumber());
+        dto.setTwentyDaysAirTime(rolling20Days);
+        dto.setAnnualAirTime(rolling365Days);
 
-        stats.setAnnualAirTime(user.getAnnualAirTime());
-        stats.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes());
-        stats.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes());
-        stats.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes());
-        stats.setTwentyDaysAirTime(user.getTwentyDaysAirTime());
-        stats.setIncapacityCounter(user.getIncapacityCounter());
+        long activeDutiesCount = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .count();
+        dto.setTotalDutiesCount((int) activeDutiesCount);
 
-        return stats;
+        int totalWork = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .mapToInt(a -> a.getDuty().getWorkTimeMinutes())
+                .sum();
+        dto.setTotalWorkTimeMinutes(totalWork);
+
+        String topRole = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .map(a -> a.getRoleOnDuty().name())
+                .reduce(java.util.function.BinaryOperator.maxBy((role1, role2) -> 1))
+                .orElse("Brak lotów");
+        dto.setMostFrequentRole(topRole);
+
+        dto.setIncapacityCounter(user.getIncapacityCounter());
+
+        return dto;
     }
 
     public void updateUser(Long id, UserUpdateDto updatedData) {

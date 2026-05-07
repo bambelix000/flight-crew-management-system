@@ -20,10 +20,9 @@ function Dashboard() {
   const [assignRole, setAssignRole] = useState('CABIN_CREW');
   const [assignError, setAssignError] = useState('');
 
-  // STANY DLA FILTRÓW
   const [filterFlightNo, setFilterFlightNo] = useState('');
   const [filterDepAirport, setFilterDepAirport] = useState('');
-  const [sortOrder, setSortOrder] = useState('asc'); // asc = najstarsze, desc = najnowsze
+  const [sortOrder, setSortOrder] = useState('asc'); 
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -52,7 +51,9 @@ function Dashboard() {
       .then(statsData => {
         setUser({ ...parsedUser, ...statsData });
       })
-      .catch(() => {});
+      .catch(() => {
+        setUser(parsedUser);
+      });
   }, [navigate, activeTab]);
 
   useEffect(() => {
@@ -128,7 +129,6 @@ function Dashboard() {
         const allUsers = await res.json();
         
         const currentDuty = duties.find(d => d.id === dutyId);
-        // Pobieramy ID przypisanych pracowników (pomijając odrzuconych, by można było przypisać kogoś innego)
         const assignedIds = currentDuty?.assignedCrew?.filter(c => c.status !== 'REJECTED').map(crew => crew.userId) || [];
         
         const availableCrew = allUsers.filter(u => 
@@ -258,7 +258,6 @@ function Dashboard() {
   const assignedFlightIds = duties.flatMap(d => (d.flights || []).map(f => f.id));
   const unassignedFlights = flights.filter(f => !assignedFlightIds.includes(f.id));
   
-  // LOGIKA FILTROWANIA I SORTOWANIA
   let targetFlightsList = activeTab === 'unassigned' ? unassignedFlights : flights;
   
   targetFlightsList = targetFlightsList.filter(f => {
@@ -291,9 +290,8 @@ function Dashboard() {
     previewEndTime = endObj.toLocaleString('pl-PL');
   }
 
-  // OSTRZEŻENIE FTL (< 5h) DLA CREWMEMBERA
-  const limitNearing20 = user.twentyDaysAirTime >= 5100;
-  const limitNearing365 = user.annualAirTime >= 53700;
+  const limitNearing20 = (user.twentyDaysAirTime || 0) >= 5100;
+  const limitNearing365 = (user.annualAirTime || 0) >= 53700;
   const showWarning = !isScheduler && (limitNearing20 || limitNearing365);
 
   const styles = {
@@ -364,7 +362,6 @@ function Dashboard() {
 
           {(activeTab === 'unassigned' || activeTab === 'allFlights') && (
             <>
-              {/* SEKCJA FILTRÓW */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '8px' }}>
                 <input 
                   type="text" 
@@ -442,7 +439,8 @@ function Dashboard() {
               ) : (
                 duties.map(duty => {
                   
-                  const myAssignment = duty.assignedCrew?.find(c => c.name.toLowerCase() === user.name?.toLowerCase() && c.surname.toLowerCase() === user.surname?.toLowerCase());
+                  // KULOODPORNE WYSZUKIWANIE PO LOGINIE!
+                  const myAssignment = duty.assignedCrew?.find(c => c.login === user.login);
                   const myStatus = myAssignment?.status; 
 
                   const isPending = !isScheduler && myStatus === 'PENDING';
@@ -530,11 +528,14 @@ function Dashboard() {
                               <span>{crew.name} {crew.surname}</span>
                               <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <span style={styles.badge}>{crew.roleOnDuty}</span>
-                                {isScheduler && crew.status && (
+                                
+                                {/* WIDOCZNY STATUS DLA KAŻDEGO! */}
+                                {crew.status && (
                                   <span style={{ ...styles.badge, ...getStatusBadgeStyle(crew.status), marginLeft: '8px' }}>
                                     {crew.status}
                                   </span>
                                 )}
+
                                 {isScheduler && (
                                   <button 
                                     style={styles.removeBtn} 
