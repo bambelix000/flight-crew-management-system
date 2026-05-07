@@ -13,7 +13,7 @@ The system automates the process of assigning pilots and cabin crew to specific 
 * **Early Warning System:** If a crew member is within 5 hours of reaching their FTL limit, the Scheduler receives a warning during assignment, and the crew member sees a prominent alert on their profile.
 
 ### 2. Rest Period and Collision Logic
-* **20-Hour Rest Rule:** The system automatically checks the time gap between the end of the previous duty and the start of a new one. If the gap is less than 20 hours, the assignment is blocked.
+* **12-Hour Rest Rule:** The system automatically checks the time gap between the end of the previous duty and the start of a new one. If the gap is less than 12 hours, the assignment is blocked.
 * **Overlap Detection:** It is impossible to assign a crew member to two duties that overlap in time.
 
 ### 3. Acknowledge System Workflow
