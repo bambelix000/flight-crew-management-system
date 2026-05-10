@@ -4,9 +4,11 @@ import lombok.Data;
 
 @Data
 public class StatsData {
+    private Long id;
     private String name;
     private String surname;
     private String phoneNumber;
+    private String mostFrequentRole;
 
     private Integer annualAirTime;
     private Integer twentyDaysAirTime;
@@ -14,4 +16,5 @@ public class StatsData {
     private Integer totalDutyTimeMinutes;
     private Integer totalAirBorneTimeMinutes;
     private int incapacityCounter;
+    private int totalDutiesCount;
 }

@@ -1,5 +1,6 @@
 package com.tab.flight_crew_manager.duty;
 
+import com.tab.flight_crew_manager.duty.dto.ActionRequestDto;
 import com.tab.flight_crew_manager.duty.dto.DutyAssignmentDto;
 import com.tab.flight_crew_manager.duty.dto.DutyDto;
 import lombok.RequiredArgsConstructor;
@@ -25,36 +26,25 @@ public class DutyController {
     }
 
     @PostMapping("/{dutyId}/assign")
-    public ResponseEntity<?> assignUserToDuty(
-            @PathVariable Long dutyId,
-            @RequestBody DutyAssignmentDto request) {
-
+    public ResponseEntity<String> assignUserToDuty(@PathVariable Long dutyId, @RequestBody DutyAssignmentDto request) {
         try {
-            dutyService.assignUserToDuty(request.getUserId(), dutyId, request.getRole());
-            return ResponseEntity.ok().build();
+            String result = dutyService.assignUserToDuty(request.getUserId(), dutyId, request.getRole());
+            return ResponseEntity.ok(result);
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
     @PostMapping("/{dutyId}/accept")
-    public ResponseEntity<?> acceptDuty(@PathVariable Long dutyId, Principal principal) {
-        try {
-            dutyService.acceptDuty(principal.getName(), dutyId);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+    public ResponseEntity<Void> acceptDuty(@PathVariable Long dutyId, Principal principal) {
+        dutyService.acceptDuty(principal.getName(), dutyId);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{dutyId}/reject")
-    public ResponseEntity<?> reportIncapacity(@PathVariable Long dutyId, Principal principal) {
-        try {
-            dutyService.reportIncapacity(principal.getName(), dutyId);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+    public ResponseEntity<Void> rejectDuty(@PathVariable Long dutyId, @RequestBody ActionRequestDto request, Principal principal) {
+        dutyService.rejectDuty(principal.getName(), dutyId, request.getReason());
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/my-duties")
@@ -70,12 +60,8 @@ public class DutyController {
     }
 
     @DeleteMapping("/{dutyId}/crew/{userId}")
-    public ResponseEntity<?> removeUserFromDuty(@PathVariable Long dutyId, @PathVariable Long userId) {
-        try {
-            dutyService.removeUserFromDuty(userId, dutyId);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+    public ResponseEntity<Void> removeUserFromDuty(@PathVariable Long dutyId, @PathVariable Long userId) {
+        dutyService.removeUserFromDuty(userId, dutyId);
+        return ResponseEntity.ok().build();
     }
 }

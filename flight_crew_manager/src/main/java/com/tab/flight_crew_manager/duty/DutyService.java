@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -67,58 +68,57 @@ public class DutyService {
             savedDuty.addFlight(flight);
         }
 
-        return dutyRepository.save(savedDuty); // Aktualizujemy z przypisanymi lotami
+        return dutyRepository.save(savedDuty);
     }
 
 
 
     @Transactional
-    public void assignUserToDuty(Long userId, Long dutyId, RoleOnDuty role) {
+    public String assignUserToDuty(Long userId, Long dutyId, RoleOnDuty role) {
         User user = userRepository.findById(userId).orElseThrow();
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
+        LocalDateTime newDutyStart = duty.getDutyStartTime();
 
-        for (CrewAssignment existingAssignment : user.getAssignments()) {
-
-            if (existingAssignment.getStatus() == AssignmentStatus.REJECTED) {
-                continue;
+        for (CrewAssignment existing : user.getAssignments()) {
+            if (existing.getStatus() == AssignmentStatus.REJECTED) continue;
+            Duty d = existing.getDuty();
+            if (!(duty.getDutyEndTime().isBefore(d.getDutyStartTime()) || duty.getDutyStartTime().isAfter(d.getDutyEndTime()))) {
+                throw new IllegalStateException("BLOKADA: Nakładanie się służb!");
             }
-            Duty existingDuty = existingAssignment.getDuty();
-
-            if (!(duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime()) ||
-                    duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime()))) {
-                throw new IllegalStateException("BLOKADA: Wykryto nakładanie się służb w czasie!");
-            }
-
-            if (duty.getDutyStartTime().isAfter(existingDuty.getDutyEndTime())) {
-                long hoursBetween = Duration.between(existingDuty.getDutyEndTime(), duty.getDutyStartTime()).toHours();
-                if (hoursBetween < 20) {
-                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku. Odstęp wynosi tylko " + hoursBetween + "h po poprzedniej służbie!");
+            if (duty.getDutyStartTime().isAfter(d.getDutyEndTime())) {
+                if (java.time.Duration.between(d.getDutyEndTime(), duty.getDutyStartTime()).toHours() < 12) {
+                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku po poprzedniej służbie.");
                 }
-            }
-            else if (duty.getDutyEndTime().isBefore(existingDuty.getDutyStartTime())) {
-                long hoursBetween = Duration.between(duty.getDutyEndTime(), existingDuty.getDutyStartTime()).toHours();
-                if (hoursBetween < 20) {
-                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku przed kolejną zaplanowaną służbą!");
+            } else if (duty.getDutyEndTime().isBefore(d.getDutyStartTime())) {
+                if (java.time.Duration.between(duty.getDutyEndTime(), d.getDutyStartTime()).toHours() < 12) {
+                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku przed kolejną służbą.");
                 }
             }
         }
 
-        int planned20DaysAirTime = user.getTwentyDaysAirTime() + duty.getAirTimeMinutes();
-        int plannedAnnualAirTime = user.getAnnualAirTime() + duty.getAirTimeMinutes();
+        int rolling20DaysMinutes = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .map(CrewAssignment::getDuty)
+                .filter(d -> d.getDutyStartTime().isAfter(newDutyStart.minusDays(20)) && d.getDutyStartTime().isBefore(newDutyStart))
+                .mapToInt(Duty::getAirTimeMinutes).sum() + duty.getAirTimeMinutes();
 
-        if (planned20DaysAirTime > 5400) {
-            throw new IllegalStateException("BLOKADA: Zaplanowanie tego lotu przekroczy limit 90h w ciągu 20 dni!");
-        }
-        if (plannedAnnualAirTime > 54000) {
-            throw new IllegalStateException("BLOKADA: Zaplanowanie tego lotu przekroczy roczny limit 900h!");
-        }
+        int rolling365DaysMinutes = user.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .map(CrewAssignment::getDuty)
+                .filter(d -> d.getDutyStartTime().isAfter(newDutyStart.minusDays(365)) && d.getDutyStartTime().isBefore(newDutyStart))
+                .mapToInt(Duty::getAirTimeMinutes).sum() + duty.getAirTimeMinutes();
 
-        user.setTwentyDaysAirTime(planned20DaysAirTime);
-        user.setAnnualAirTime(plannedAnnualAirTime);
-        userRepository.save(user);
+        if (rolling20DaysMinutes > 5400) throw new IllegalStateException("BLOKADA: Przekroczenie 90h w 20 dni od daty lotu.");
+        if (rolling365DaysMinutes > 54000) throw new IllegalStateException("BLOKADA: Przekroczenie 900h w rok od daty lotu.");
 
         CrewAssignment assignment = new CrewAssignment(user, duty, role);
+        assignment.setStatus(AssignmentStatus.PENDING);
         assignmentRepository.save(assignment);
+
+        if (rolling20DaysMinutes >= 5100 || rolling365DaysMinutes >= 53700) {
+            return "WARNING_LIMIT: Użytkownik przypisany, ale brakuje mniej niż 5h do limitu FTL!";
+        }
+        return "SUCCESS: Przypisano pomyślnie.";
     }
 
     public List<DutyDto> getAllDuties() {
@@ -138,79 +138,49 @@ public class DutyService {
 
     private DutyDto mapToDto(Duty duty) {
         DutyDto dto = new DutyDto();
-
         dto.setId(duty.getId());
         dto.setDutyStartTime(duty.getDutyStartTime());
         dto.setDutyEndTime(duty.getDutyEndTime());
         dto.setWorkTimeMinutes(duty.getWorkTimeMinutes());
         dto.setAirTimeMinutes(duty.getAirTimeMinutes());
-
-        dto.setFlights(duty.getFlights().stream()
-                .map(f -> new FlightSummaryDto(
-                        f.getId(),
-                        f.getFlightNumber(),
-                        f.getDepartureAirport().getAirportCode() + " - " + f.getArrivalAirport().getAirportCode()
-                ))
-                .collect(Collectors.toList()));
-
-        dto.setAssignedCrew(duty.getAssignments().stream()
-                .map(assignment -> new CrewMemberDto(
-                        assignment.getUser().getId(),
-                        assignment.getUser().getName(),
-                        assignment.getUser().getSurname(),
-                        assignment.getRoleOnDuty().name(),
-                        assignment.getStatus().name()
-                ))
-                .collect(Collectors.toList()));
-
+        dto.setFlights(duty.getFlights().stream().map(f -> new FlightSummaryDto(f.getId(), f.getFlightNumber(), f.getDepartureAirport().getAirportCode() + " - " + f.getArrivalAirport().getAirportCode())).collect(Collectors.toList()));
+        dto.setAssignedCrew(duty.getAssignments().stream().map(a -> new CrewMemberDto(a.getUser().getId(), a.getUser().getLogin(), a.getUser().getName(), a.getUser().getSurname(), a.getRoleOnDuty().name(), a.getStatus().name(), a.getRejectionReason())).collect(Collectors.toList()));
         return dto;
     }
 
+    @Transactional
     public void acceptDuty(String login, Long dutyId) {
         User user = userRepository.findByLogin(login).orElseThrow();
-
-        CrewAssignment assignment = user.getAssignments().stream()
-                .filter(a -> a.getDuty().getId().equals(dutyId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Nie jesteś przypisany do tej służby."));
-
-        assignment.setStatus(AssignmentStatus.ACCEPTED);
-        assignmentRepository.save(assignment);
+        CrewAssignment a = user.getAssignments().stream()
+                .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+        a.setStatus(AssignmentStatus.ACCEPTED);
+        assignmentRepository.save(a);
     }
+
+
     @Transactional
-    public void reportIncapacity(String login, Long dutyId) {
+    public void rejectDuty(String login, Long dutyId, String reason) {
         User user = userRepository.findByLogin(login).orElseThrow();
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
-
-        CrewAssignment assignment = user.getAssignments().stream()
-                .filter(a -> a.getDuty().getId().equals(dutyId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Nie jesteś przypisany do tej służby."));
-
-        user.setTwentyDaysAirTime(user.getTwentyDaysAirTime() - duty.getAirTimeMinutes());
-        user.setAnnualAirTime(user.getAnnualAirTime() - duty.getAirTimeMinutes());
-
+        CrewAssignment a = user.getAssignments().stream()
+                .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+        a.setStatus(AssignmentStatus.REJECTED);
+        a.setRejectionReason(reason);
         user.setIncapacityCounter(user.getIncapacityCounter() + 1);
-
         userRepository.save(user);
-        assignment.setStatus(AssignmentStatus.REJECTED);
-        assignmentRepository.save(assignment);
+        assignmentRepository.save(a);
     }
 
     @Transactional
     public void removeUserFromDuty(Long userId, Long dutyId) {
         User user = userRepository.findById(userId).orElseThrow();
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
-
-        CrewAssignment assignment = user.getAssignments().stream()
-                .filter(a -> a.getDuty().getId().equals(dutyId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Użytkownik nie jest przypisany do tej służby."));
-
-        user.getAssignments().remove(assignment);
-        duty.getAssignments().remove(assignment);
-
+        CrewAssignment a = user.getAssignments().stream()
+                .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+        user.getAssignments().remove(a);
+        duty.getAssignments().remove(a);
         userRepository.save(user);
-        assignmentRepository.delete(assignment);
+        dutyRepository.save(duty);
+        assignmentRepository.delete(a);
     }
 }
