@@ -7,6 +7,8 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState(null);
   const [flights, setFlights] = useState([]);
   const [duties, setDuties] = useState([]);
+  const [airports, setAirports] = useState([]);
+  const [crewStats, setCrewStats] = useState([]); // NOWY STAN DLA LIMITÓW ZAŁÓG
   const [selectedFlights, setSelectedFlights] = useState([]);
   const [expandedDutyId, setExpandedDutyId] = useState(null);
   
@@ -23,6 +25,13 @@ function Dashboard() {
   const [filterFlightNo, setFilterFlightNo] = useState('');
   const [filterDepAirport, setFilterDepAirport] = useState('');
   const [sortOrder, setSortOrder] = useState('asc'); 
+
+  const [isAddFlightModalOpen, setIsAddFlightModalOpen] = useState(false);
+  const [newFlightNo, setNewFlightNo] = useState('');
+  const [newDepAirportId, setNewDepAirportId] = useState('');
+  const [newArrAirportId, setNewArrAirportId] = useState('');
+  const [newDepTime, setNewDepTime] = useState('');
+  const [newArrTime, setNewArrTime] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -65,12 +74,17 @@ function Dashboard() {
     const fetchTabData = async () => {
       try {
         if (isScheduler) {
-          const [resFlights, resDuties] = await Promise.all([
+          // Pobieramy wszystko, w tym nowe statystyki wszystkich załóg
+          const [resFlights, resDuties, resAirports, resCrewStats] = await Promise.all([
             fetch('http://localhost:8080/flights/get', { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('http://localhost:8080/duties', { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch('http://localhost:8080/duties', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('http://localhost:8080/airports', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('http://localhost:8080/users/crew-stats', { headers: { 'Authorization': `Bearer ${token}` } })
           ]);
           if (resFlights.ok) setFlights(await resFlights.json());
           if (resDuties.ok) setDuties(await resDuties.json());
+          if (resAirports.ok) setAirports(await resAirports.json());
+          if (resCrewStats.ok) setCrewStats(await resCrewStats.json());
         } else {
           const res = await fetch('http://localhost:8080/duties/my-duties', { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.ok) setDuties(await res.json());
@@ -119,6 +133,41 @@ function Dashboard() {
     } catch (err) {}
   };
 
+  const handleAddFlightSubmit = async () => {
+    const token = localStorage.getItem('token');
+    const payload = {
+      flightNumber: newFlightNo,
+      departureAirportId: parseInt(newDepAirportId),
+      arrivalAirportId: parseInt(newArrAirportId),
+      departureTime: newDepTime,
+      arrivalTime: newArrTime
+    };
+
+    try {
+      const res = await fetch('http://localhost:8080/flights/add', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setIsAddFlightModalOpen(false);
+        setNewFlightNo('');
+        setNewDepAirportId('');
+        setNewArrAirportId('');
+        setNewDepTime('');
+        setNewArrTime('');
+        setRefreshKey(prev => prev + 1);
+      } else {
+        alert("Błąd dodawania lotu. Upewnij się, że dane są poprawne.");
+      }
+    } catch (err) {
+      alert("Wystąpił błąd komunikacji z serwerem.");
+    }
+  };
+
   const openAssignModal = async (dutyId) => {
     const token = localStorage.getItem('token');
     try {
@@ -127,10 +176,8 @@ function Dashboard() {
       });
       if (res.ok) {
         const allUsers = await res.json();
-        
         const currentDuty = duties.find(d => d.id === dutyId);
         const assignedIds = currentDuty?.assignedCrew?.filter(c => c.status !== 'REJECTED').map(crew => crew.userId) || [];
-        
         const availableCrew = allUsers.filter(u => 
           u.userRole === 'CREWMEMBER' && !assignedIds.includes(u.id)
         );
@@ -301,9 +348,9 @@ function Dashboard() {
     th: { textAlign: 'left', padding: '12px', borderBottom: '2px solid #edf2f7', color: '#718096', fontSize: '13px', textTransform: 'uppercase' },
     td: { padding: '12px', borderBottom: '1px solid #edf2f7', color: '#2d3748', fontSize: '14px' },
     status: { padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', backgroundColor: '#e3f9e5', color: '#1f7a28' },
-    tabsContainer: { display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #edf2f7', paddingBottom: '10px' },
-    tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', color: '#718096', cursor: 'pointer', fontSize: '16px', fontWeight: '600' },
-    activeTab: { padding: '10px 20px', border: 'none', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '700' },
+    tabsContainer: { display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #edf2f7', paddingBottom: '10px', overflowX: 'auto' },
+    tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', color: '#718096', cursor: 'pointer', fontSize: '16px', fontWeight: '600', whiteSpace: 'nowrap' },
+    activeTab: { padding: '10px 20px', border: 'none', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '700', whiteSpace: 'nowrap' },
     dutyBlock: { border: '1px solid #edf2f7', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' },
     dutyDetails: { padding: '16px', borderTop: '1px solid #edf2f7', backgroundColor: '#fff' },
     detailsTitle: { margin: 0, fontSize: '14px', color: '#718096', textTransform: 'uppercase' },
@@ -316,7 +363,9 @@ function Dashboard() {
     errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' },
     actionBtn: { flex: 1, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none', textAlign: 'center', transition: '0.2s' },
     removeBtn: { padding: '4px 8px', marginLeft: '10px', backgroundColor: '#fff5f5', color: '#c53030', border: '1px solid #feb2b2', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' },
-    filterInput: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' }
+    filterInput: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' },
+    btnPrimary: { padding: '10px 20px', backgroundColor: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
+    btnSuccess: { padding: '8px 16px', backgroundColor: '#38a169', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', marginRight: '10px' }
   };
 
   return (
@@ -326,6 +375,9 @@ function Dashboard() {
         <div>
           {user.userRole === 'ADMIN' && (
             <button onClick={() => navigate('/userList')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#fed7d7', color: '#9b2c2c', fontWeight: '600', marginRight: '10px' }}>Użytkownicy</button>
+          )}
+          {isScheduler && (
+            <button onClick={() => setIsAddFlightModalOpen(true)} style={styles.btnSuccess}>+ Dodaj Lot</button>
           )}
           <button onClick={() => navigate('/myProfile')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#5469d4', color: '#fff', fontWeight: '600', marginRight: '10px' }}>Mój Profil</button>
           <button onClick={handleLogout} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff' }}>Wyloguj</button>
@@ -348,6 +400,10 @@ function Dashboard() {
                 <button style={activeTab === 'createdDuties' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('createdDuties')}>
                   Utworzone Służby
                 </button>
+                {/* NOWA ZAKŁADKA */}
+                <button style={activeTab === 'crewLimits' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('crewLimits')}>
+                  Limity Załóg
+                </button>
               </>
             ) : (
               <button style={styles.activeTab}>Moje Służby</button>
@@ -358,6 +414,48 @@ function Dashboard() {
             <div style={{ backgroundColor: '#fed7d7', color: '#9b2c2c', padding: '16px', borderRadius: '8px', fontWeight: 'bold', marginBottom: '20px' }}>
               ⚠️ UWAGA FTL: Zbliżasz się do limitów czasu lotu. Zostało Ci mniej niż 5 godzin zaplanowanego lotu.
             </div>
+          )}
+
+          {/* WIDOK: LIMITY ZAŁÓG (Tylko Scheduler/Admin) */}
+          {activeTab === 'crewLimits' && (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Pracownik</th>
+                  <th style={styles.th}>Ostatnie 20 dni</th>
+                  <th style={styles.th}>Rok Kalendarzowy</th>
+                  <th style={styles.th}>Zgłoszone Incapacity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {crewStats.length === 0 ? (
+                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>Brak pracowników na liście.</td></tr>
+                ) : (
+                  crewStats.map(crew => {
+                    const nearLimit20 = (crew.twentyDaysAirTime || 0) >= 5100;
+                    const nearLimit365 = (crew.annualAirTime || 0) >= 53700;
+                    return (
+                      <tr key={crew.id}>
+                        <td style={styles.td}>
+                          <strong>{crew.name} {crew.surname}</strong> <span style={{ color: '#718096', fontSize: '12px' }}>({crew.login})</span>
+                        </td>
+                        <td style={{ ...styles.td, color: nearLimit20 ? '#c53030' : 'inherit', fontWeight: nearLimit20 ? 'bold' : 'normal' }}>
+                          {Math.floor((crew.twentyDaysAirTime || 0) / 60)}h / 90h
+                        </td>
+                        <td style={{ ...styles.td, color: nearLimit365 ? '#c53030' : 'inherit', fontWeight: nearLimit365 ? 'bold' : 'normal' }}>
+                          {Math.floor((crew.annualAirTime || 0) / 60)}h / 900h
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: crew.incapacityCounter > 0 ? '#fed7d7' : '#edf2f7', color: crew.incapacityCounter > 0 ? '#c53030' : '#4a5568' }}>
+                            {crew.incapacityCounter}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           )}
 
           {(activeTab === 'unassigned' || activeTab === 'allFlights') && (
@@ -424,7 +522,7 @@ function Dashboard() {
               {activeTab === 'unassigned' && selectedFlights.length > 0 && (
                 <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#ebf4ff', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#2b6cb0', fontWeight: '600' }}>Wybrano lotów: {selectedFlights.length}</span>
-                  <button onClick={() => setIsModalOpen(true)} style={{ padding: '12px 24px', backgroundColor: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                  <button onClick={() => setIsModalOpen(true)} style={styles.btnPrimary}>
                     Utwórz Służbę
                   </button>
                 </div>
@@ -439,7 +537,6 @@ function Dashboard() {
               ) : (
                 duties.map(duty => {
                   
-                  // KULOODPORNE WYSZUKIWANIE PO LOGINIE!
                   const myAssignment = duty.assignedCrew?.find(c => c.login === user.login);
                   const myStatus = myAssignment?.status; 
 
@@ -529,7 +626,6 @@ function Dashboard() {
                               <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <span style={styles.badge}>{crew.roleOnDuty}</span>
                                 
-                                {/* WIDOCZNY STATUS DLA KAŻDEGO! */}
                                 {crew.status && (
                                   <span style={{ ...styles.badge, ...getStatusBadgeStyle(crew.status), marginLeft: '8px' }}>
                                     {crew.status}
@@ -651,7 +747,57 @@ function Dashboard() {
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Anuluj</button>
-              <button onClick={handleCreateDutySubmit} style={{ padding: '10px 20px', backgroundColor: '#38a169', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Zatwierdź służbę</button>
+              <button onClick={handleCreateDutySubmit} style={styles.btnPrimary}>Zatwierdź służbę</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddFlightModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={{ marginTop: 0, color: '#1a1f36', fontSize: '20px', marginBottom: '24px' }}>Dodaj Nowy Lot</h2>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Nr lotu (np. LO123):</label>
+              <input type="text" value={newFlightNo} onChange={e => setNewFlightNo(e.target.value)} style={styles.selectInput} />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Lotnisko wylotu:</label>
+              <select value={newDepAirportId} onChange={e => setNewDepAirportId(e.target.value)} style={styles.selectInput}>
+                <option value="" disabled>Wybierz...</option>
+                {airports.map(a => <option key={a.id} value={a.id}>{a.airportCode} - {a.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Lotnisko przylotu:</label>
+              <select value={newArrAirportId} onChange={e => setNewArrAirportId(e.target.value)} style={styles.selectInput}>
+                <option value="" disabled>Wybierz...</option>
+                {airports.map(a => <option key={a.id} value={a.id}>{a.airportCode} - {a.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Czas wylotu:</label>
+              <input type="datetime-local" value={newDepTime} onChange={e => setNewDepTime(e.target.value)} style={styles.selectInput} />
+            </div>
+
+            <div style={{ marginBottom: '32px' }}>
+              <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Czas przylotu:</label>
+              <input type="datetime-local" value={newArrTime} onChange={e => setNewArrTime(e.target.value)} style={styles.selectInput} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => setIsAddFlightModalOpen(false)} style={{ padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Anuluj</button>
+              <button 
+                onClick={handleAddFlightSubmit} 
+                style={styles.btnPrimary} 
+                disabled={!newFlightNo || !newDepAirportId || !newArrAirportId || !newDepTime || !newArrTime}
+              >
+                Zapisz Lot
+              </button>
             </div>
           </div>
         </div>

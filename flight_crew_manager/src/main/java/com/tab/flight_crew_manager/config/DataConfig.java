@@ -57,14 +57,65 @@ public class DataConfig {
                 userRepository.save(mirek);
             }
             if (airportRepository.count() == 0) {
+                List<Airport> airports = List.of(
+                        new Airport("WAW", "Chopin Airport", "Warsaw", "Poland"),
+                        new Airport("KRK", "John Paul II Balice", "Krakow", "Poland"),
+                        new Airport("GDN", "Lech Walesa", "Gdansk", "Poland"),
+                        new Airport("KTW", "Pyrzowice", "Katowice", "Poland"),
+                        new Airport("WRO", "Copernicus", "Wroclaw", "Poland"),
+                        new Airport("WMI", "Modlin", "Warsaw", "Poland"),
+                        new Airport("POZ", "Lawica", "Poznan", "Poland"),
+                        new Airport("RZE", "Jasionka", "Rzeszow", "Poland"),
+                        new Airport("SZZ", "Solidarity", "Szczecin", "Poland"),
+                        new Airport("LUZ", "Lublin Airport", "Lublin", "Poland"),
+                        new Airport("BZG", "Bydgoszcz Ignacy Jan Paderewski", "Bydgoszcz", "Poland"),
+                        new Airport("IEG", "Zielona Gora-Babimost", "Zielona Gora", "Poland"),
+                        new Airport("LCJ", "Wladyslaw Reymont", "Lodz", "Poland"),
+                        new Airport("SZY", "Olsztyn-Mazury", "Szymany", "Poland"),
 
-                Airport waw = new Airport("WAW", "Chopin Airport", "Warsaw", "Poland");
-                Airport lhr = new Airport("LHR", "Heathrow Airport", "London", "UK");
-                Airport jfk = new Airport("JFK", "John F. Kennedy", "New York", "USA");
-                Airport cdg = new Airport("CDG", "Charles de Gaulle", "Paris", "France");
-                Airport fco = new Airport("FCO", "Fiumicino", "Rome", "Italy");
+                        new Airport("LHR", "Heathrow", "London", "UK"),
+                        new Airport("LGW", "Gatwick", "London", "UK"),
+                        new Airport("CDG", "Charles de Gaulle", "Paris", "France"),
+                        new Airport("ORY", "Orly", "Paris", "France"),
+                        new Airport("FRA", "Frankfurt am Main", "Frankfurt", "Germany"),
+                        new Airport("MUC", "Munich Airport", "Munich", "Germany"),
+                        new Airport("AMS", "Schiphol", "Amsterdam", "Netherlands"),
+                        new Airport("MAD", "Adolfo Suarez Barajas", "Madrid", "Spain"),
+                        new Airport("BCN", "El Prat", "Barcelona", "Spain"),
+                        new Airport("FCO", "Fiumicino", "Rome", "Italy"),
+                        new Airport("MXP", "Malpensa", "Milan", "Italy"),
+                        new Airport("VIE", "Vienna International", "Vienna", "Austria"),
+                        new Airport("ZRH", "Zurich Airport", "Zurich", "Switzerland"),
+                        new Airport("CPH", "Kastrup", "Copenhagen", "Denmark"),
+                        new Airport("OSL", "Gardermoen", "Oslo", "Norway"),
+                        new Airport("ARN", "Arlanda", "Stockholm", "Sweden"),
+                        new Airport("HEL", "Gardermoen", "Helsinki", "Finland"),
+                        new Airport("DUB", "Dublin Airport", "Dublin", "Ireland"),
+                        new Airport("LIS", "Humberto Delgado", "Lisbon", "Portugal"),
+                        new Airport("ATH", "Eleftherios Venizelos", "Athens", "Greece"),
+                        new Airport("BRU", "Brussels Airport", "Brussels", "Belgium"),
+                        new Airport("PRG", "Vaclav Havel", "Prague", "Czechia"),
+                        new Airport("BUD", "Ferenc Liszt", "Budapest", "Hungary"),
+                        new Airport("OTP", "Ferenc Liszt", "Bucharest", "Romania"),
 
-                airportRepository.saveAll(List.of(waw, lhr, jfk, cdg, fco));
+                        new Airport("JFK", "John F. Kennedy", "New York", "USA"),
+                        new Airport("EWR", "O'Hare", "Chicago", "USA"),
+                        new Airport("LAX", "Los Angeles International", "Los Angeles", "USA"),
+                        new Airport("SFO", "San Francisco International", "San Francisco", "USA"),
+                        new Airport("MIA", "Miami International", "Miami", "USA"),
+                        new Airport("YYZ", "Pearson", "Toronto", "Canada"),
+                        new Airport("DXB", "Dubai International", "Dubai", "UAE"),
+                        new Airport("DOH", "Hamad International", "Doha", "Qatar"),
+                        new Airport("HND", "Haneda", "Tokyo", "Japan"),
+                        new Airport("NRT", "Narita", "Tokyo", "Japan"),
+                        new Airport("SIN", "Changi", "Singapore", "Singapore"),
+                        new Airport("HKG", "Hong Kong International", "Hong Kong", "Hong Kong"),
+                        new Airport("BKK", "Suvarnabhumi", "Bangkok", "Thailand"),
+                        new Airport("SYD", "Kingsford Smith", "Sydney", "Australia"),
+                        new Airport("GRU", "Guarulhos", "Sao Paulo", "Brazil")
+                );
+
+                airportRepository.saveAll(airports);
             }
             if (flightRepository.count() == 0) {
                 Airport waw = airportRepository.findByAirportCode("WAW").orElseThrow();
