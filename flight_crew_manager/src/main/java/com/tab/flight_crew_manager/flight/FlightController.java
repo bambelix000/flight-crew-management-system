@@ -24,4 +24,6 @@ public class FlightController {
         Flight newFlight = flightService.addFlight(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(newFlight);
     }
+
+
 }
