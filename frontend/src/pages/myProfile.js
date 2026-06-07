@@ -38,8 +38,8 @@ function MyProfile() {
 
   const isScheduler = userStats.userRole === 'SCHEDULER' || userStats.userRole === 'ADMIN';
 
-  const limitNearing20 = userStats.twentyDaysAirTime >= 5100;
-  const limitNearing365 = userStats.annualAirTime >= 53700;
+  const limitNearing20 = (userStats.twentyDaysAirTime || 0) >= 5100;
+  const limitNearing365 = (userStats.annualAirTime || 0) >= 53700;
   const showWarning = !isScheduler && (limitNearing20 || limitNearing365);
 
   const styles = {
@@ -83,28 +83,28 @@ function MyProfile() {
           </div>
         </div>
 
-        {/* POKAZUJEMY STATYSTYKI TYLKO PRACOWNIKOM LOTNICZYM */}
         {!isScheduler && (
           <>
-            <h3 style={{ fontSize: '18px', color: '#4a5568', marginBottom: '20px' }}>Podsumowanie Lotów i Służb</h3>
-            
+            <h3 style={{ fontSize: '18px', color: '#4a5568', marginBottom: '20px' }}>Całkowite Podsumowanie (All-time)</h3>
             <div style={styles.statsGrid}>
               <div style={{ ...styles.statBox, backgroundColor: '#ebf4ff' }}>
-                <h4 style={{ ...styles.statTitle, color: '#2b6cb0' }}>Ilość Służb</h4>
-                <p style={{ ...styles.statValue, color: '#1a365d' }}>{userStats.totalDutiesCount || 0}</p>
+                <h4 style={{ ...styles.statTitle, color: '#2b6cb0' }}>Czas Służb (Duty)</h4>
+                <p style={{ ...styles.statValue, color: '#1a365d' }}>
+                  {Math.floor((userStats.totalDutyTimeMinutes || 0) / 60)}h {(userStats.totalDutyTimeMinutes || 0) % 60}m
+                </p>
               </div>
 
               <div style={{ ...styles.statBox, backgroundColor: '#e6fffa' }}>
-                <h4 style={{ ...styles.statTitle, color: '#285e61' }}>Czas Pracy Total</h4>
+                <h4 style={{ ...styles.statTitle, color: '#285e61' }}>Czas Pracy (Work)</h4>
                 <p style={{ ...styles.statValue, color: '#234e52' }}>
                   {Math.floor((userStats.totalWorkTimeMinutes || 0) / 60)}h {(userStats.totalWorkTimeMinutes || 0) % 60}m
                 </p>
               </div>
 
-              <div style={{ ...styles.statBox, backgroundColor: '#fefeb6' }}>
-                <h4 style={{ ...styles.statTitle, color: '#744210' }}>Najczęstsza Rola</h4>
-                <p style={{ ...styles.statValue, color: '#744210', fontSize: '24px' }}>
-                  {userStats.mostFrequentRole || 'Brak lotów'}
+              <div style={{ ...styles.statBox, backgroundColor: '#f0f4ff' }}>
+                <h4 style={{ ...styles.statTitle, color: '#4c51bf' }}>W Powietrzu (Flight)</h4>
+                <p style={{ ...styles.statValue, color: '#2b6cb0' }}>
+                  {Math.floor((userStats.totalAirBorneTimeMinutes || 0) / 60)}h {(userStats.totalAirBorneTimeMinutes || 0) % 60}m
                 </p>
               </div>
 
@@ -112,10 +112,16 @@ function MyProfile() {
                 <h4 style={{ ...styles.statTitle, color: '#c53030' }}>Zgłoszone Incapacity</h4>
                 <p style={{ ...styles.statValue, color: '#742a2a' }}>{userStats.incapacityCounter || 0}</p>
               </div>
+              
+              <div style={{ ...styles.statBox, backgroundColor: '#fefeb6', gridColumn: 'span 2' }}>
+                <h4 style={{ ...styles.statTitle, color: '#744210' }}>Najczęstsza Rola</h4>
+                <p style={{ ...styles.statValue, color: '#744210', fontSize: '24px' }}>
+                  {userStats.mostFrequentRole || 'Brak lotów'}
+                </p>
+              </div>
             </div>
 
-            <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL)</h3>
-            
+            <h3 style={{ fontSize: '18px', color: '#4a5568', marginTop: '40px', marginBottom: '20px' }}>Limity Czasu Lotu (FTL) - Kroczące</h3>
             <div style={styles.statsGrid}>
               <div style={{ ...styles.statBox, border: limitNearing20 ? '2px solid #feb2b2' : '1px solid #edf2f7' }}>
                 <h4 style={{ ...styles.statTitle, color: '#718096' }}>Ostatnie 20 dni</h4>

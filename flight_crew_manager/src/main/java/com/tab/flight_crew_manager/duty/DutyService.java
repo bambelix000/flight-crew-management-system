@@ -86,12 +86,12 @@ public class DutyService {
                 throw new IllegalStateException("BLOKADA: Nakładanie się służb!");
             }
             if (duty.getDutyStartTime().isAfter(d.getDutyEndTime())) {
-                if (java.time.Duration.between(d.getDutyEndTime(), duty.getDutyStartTime()).toHours() < 12) {
-                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku po poprzedniej służbie.");
+                if (java.time.Duration.between(d.getDutyEndTime(), duty.getDutyStartTime()).toHours() < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku po poprzedniej służbie.");
                 }
             } else if (duty.getDutyEndTime().isBefore(d.getDutyStartTime())) {
-                if (java.time.Duration.between(duty.getDutyEndTime(), d.getDutyStartTime()).toHours() < 12) {
-                    throw new IllegalStateException("BLOKADA: Brak 12h odpoczynku przed kolejną służbą.");
+                if (java.time.Duration.between(duty.getDutyEndTime(), d.getDutyStartTime()).toHours() < 20) {
+                    throw new IllegalStateException("BLOKADA: Brak 20h odpoczynku przed kolejną służbą.");
                 }
             }
         }
@@ -111,8 +111,19 @@ public class DutyService {
         if (rolling20DaysMinutes > 5400) throw new IllegalStateException("BLOKADA: Przekroczenie 90h w 20 dni od daty lotu.");
         if (rolling365DaysMinutes > 54000) throw new IllegalStateException("BLOKADA: Przekroczenie 900h w rok od daty lotu.");
 
+        int dutyDurationMinutes = 0;
+        if (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) {
+            dutyDurationMinutes = (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes();
+        }
+
+        user.setTotalAirBorneTimeMinutes((user.getTotalAirBorneTimeMinutes() != null ? user.getTotalAirBorneTimeMinutes() : 0) + duty.getAirTimeMinutes());
+        user.setTotalWorkTimeMinutes((user.getTotalWorkTimeMinutes() != null ? user.getTotalWorkTimeMinutes() : 0) + duty.getWorkTimeMinutes());
+        user.setTotalDutyTimeMinutes((user.getTotalDutyTimeMinutes() != null ? user.getTotalDutyTimeMinutes() : 0) + dutyDurationMinutes);
+
         CrewAssignment assignment = new CrewAssignment(user, duty, role);
         assignment.setStatus(AssignmentStatus.PENDING);
+
+        userRepository.save(user);
         assignmentRepository.save(assignment);
 
         if (rolling20DaysMinutes >= 5100 || rolling365DaysMinutes >= 53700) {
@@ -164,9 +175,18 @@ public class DutyService {
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
         CrewAssignment a = user.getAssignments().stream()
                 .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+
         a.setStatus(AssignmentStatus.REJECTED);
         a.setRejectionReason(reason);
         user.setIncapacityCounter(user.getIncapacityCounter() + 1);
+
+        int dutyDurationMinutes = (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) ?
+                (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes() : 0;
+
+        user.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() - duty.getAirTimeMinutes());
+        user.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() - duty.getWorkTimeMinutes());
+        user.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() - dutyDurationMinutes);
+
         userRepository.save(user);
         assignmentRepository.save(a);
     }
@@ -177,6 +197,16 @@ public class DutyService {
         Duty duty = dutyRepository.findById(dutyId).orElseThrow();
         CrewAssignment a = user.getAssignments().stream()
                 .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+
+        int dutyDurationMinutes = (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) ?
+                (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes() : 0;
+
+        if (a.getStatus() != AssignmentStatus.REJECTED) {
+            user.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() - duty.getAirTimeMinutes());
+            user.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() - duty.getWorkTimeMinutes());
+            user.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() - dutyDurationMinutes);
+        }
+
         user.getAssignments().remove(a);
         duty.getAssignments().remove(a);
         userRepository.save(user);

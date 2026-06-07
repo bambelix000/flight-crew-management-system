@@ -3,7 +3,7 @@ package com.tab.flight_crew_manager.user;
 import com.tab.flight_crew_manager.crew_assignment.AssignmentStatus;
 import com.tab.flight_crew_manager.crew_assignment.CrewAssignment;
 import com.tab.flight_crew_manager.duty.Duty;
-import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.StatsDataDto;
 import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -33,41 +33,36 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public StatsData getStats(Principal principal) {
+    public StatsDataDto getStats(Principal principal) {
         String login = principal.getName();
         User user = userRepository.findByLogin(login).orElseThrow();
         LocalDateTime now = LocalDateTime.now();
 
-        StatsData dto = new StatsData();
-
+        StatsDataDto dto = new StatsDataDto();
         dto.setId(user.getId());
+        dto.setLogin(user.getLogin());     
+        dto.setName(user.getName());
+        dto.setSurname(user.getSurname());
+
         int rolling20Days = user.getAssignments().stream()
                 .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
                 .map(CrewAssignment::getDuty)
                 .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(20)))
-                .mapToInt(Duty::getAirTimeMinutes)
-                .sum();
+                .mapToInt(Duty::getAirTimeMinutes).sum();
 
         int rolling365Days = user.getAssignments().stream()
                 .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
                 .map(CrewAssignment::getDuty)
                 .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(365)))
-                .mapToInt(Duty::getAirTimeMinutes)
-                .sum();
+                .mapToInt(Duty::getAirTimeMinutes).sum();
 
         dto.setTwentyDaysAirTime(rolling20Days);
         dto.setAnnualAirTime(rolling365Days);
 
-        long activeDutiesCount = user.getAssignments().stream()
-                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
-                .count();
-        dto.setTotalDutiesCount((int) activeDutiesCount);
-
-        int totalWork = user.getAssignments().stream()
-                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
-                .mapToInt(a -> a.getDuty().getWorkTimeMinutes())
-                .sum();
-        dto.setTotalWorkTimeMinutes(totalWork);
+        dto.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() != null ? user.getTotalAirBorneTimeMinutes() : 0);
+        dto.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() != null ? user.getTotalWorkTimeMinutes() : 0);
+        dto.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() != null ? user.getTotalDutyTimeMinutes() : 0);
+        dto.setIncapacityCounter(user.getIncapacityCounter());
 
         String topRole = user.getAssignments().stream()
                 .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
@@ -75,8 +70,6 @@ public class UserService {
                 .reduce(java.util.function.BinaryOperator.maxBy((role1, role2) -> 1))
                 .orElse("Brak lotów");
         dto.setMostFrequentRole(topRole);
-
-        dto.setIncapacityCounter(user.getIncapacityCounter());
 
         return dto;
     }
@@ -112,5 +105,42 @@ public class UserService {
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Nie znaleziono użytkownika"));
+    }
+
+    public List<StatsDataDto> getAllCrewStats() {
+        LocalDateTime now = LocalDateTime.now();
+
+        return userRepository.findAll().stream()
+                .filter(u -> u.getUserRole() == UserRole.CREWMEMBER)
+                .map(user -> {
+                    StatsDataDto dto = new StatsDataDto();
+                    dto.setId(user.getId());
+                    dto.setLogin(user.getLogin());
+                    dto.setName(user.getName());
+                    dto.setSurname(user.getSurname());
+
+                    int rolling20Days = user.getAssignments().stream()
+                            .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                            .map(CrewAssignment::getDuty)
+                            .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(20)))
+                            .mapToInt(Duty::getAirTimeMinutes).sum();
+
+                    int rolling365Days = user.getAssignments().stream()
+                            .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                            .map(CrewAssignment::getDuty)
+                            .filter(d -> d.getDutyStartTime() != null && d.getDutyStartTime().isAfter(now.minusDays(365)))
+                            .mapToInt(Duty::getAirTimeMinutes).sum();
+
+                    dto.setTwentyDaysAirTime(rolling20Days);
+                    dto.setAnnualAirTime(rolling365Days);
+
+                    dto.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() != null ? user.getTotalAirBorneTimeMinutes() : 0);
+                    dto.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() != null ? user.getTotalWorkTimeMinutes() : 0);
+                    dto.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() != null ? user.getTotalDutyTimeMinutes() : 0);
+                    dto.setIncapacityCounter(user.getIncapacityCounter());
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 }

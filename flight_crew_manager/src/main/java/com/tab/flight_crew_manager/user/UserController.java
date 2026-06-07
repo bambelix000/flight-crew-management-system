@@ -2,7 +2,7 @@ package com.tab.flight_crew_manager.user;
 
 
 import com.tab.flight_crew_manager.user.dto.PhoneUpdateDto;
-import com.tab.flight_crew_manager.user.dto.StatsData;
+import com.tab.flight_crew_manager.user.dto.StatsDataDto;
 import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -47,10 +46,16 @@ public class UserController {
     }
 
     @GetMapping("/my-stats")
-    public ResponseEntity<StatsData> getMyStats(Principal principal) {
+    public ResponseEntity<StatsDataDto> getMyStats(Principal principal) {
 
-        StatsData stats = userService.getStats(principal);
+        StatsDataDto stats = userService.getStats(principal);
 
         return ResponseEntity.ok(stats);
+    }
+
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'SCHEDULER')")
+    @GetMapping("/crew-stats")
+    public ResponseEntity<List<StatsDataDto>> getAllCrewStats() {
+        return ResponseEntity.ok(userService.getAllCrewStats());
     }
 }

@@ -3,10 +3,11 @@ package com.tab.flight_crew_manager.user.dto;
 import lombok.Data;
 
 @Data
-public class StatsData {
+public class StatsDataDto {
     private Long id;
     private String name;
     private String surname;
+    private String login;
     private String phoneNumber;
     private String mostFrequentRole;
 
