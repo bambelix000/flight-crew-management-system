@@ -42,11 +42,40 @@ function MyProfile() {
   const limitNearing365 = (userStats.annualAirTime || 0) >= 53700;
   const showWarning = !isScheduler && (limitNearing20 || limitNearing365);
 
+  const handleDownloadReport = async () => {
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch('http://localhost:8080/users/my-report', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Nie udało się wygenerować raportu.');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'flight-crew-report.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Błąd generowania raportu.');
+    }
+  };
+
   const styles = {
     container: { padding: '40px', fontFamily: '"Inter", sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' },
     card: { backgroundColor: '#fff', padding: '32px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', width: '100%', maxWidth: '900px', marginBottom: '24px' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', width: '100%', maxWidth: '900px' },
     title: { fontSize: '24px', color: '#1a1f36', margin: 0 },
+    headerActions: { display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
+    reportButton: { padding: '8px 16px', borderRadius: '8px', border: '1px solid #2b6cb0', cursor: 'pointer', background: '#2b6cb0', fontWeight: '600', color: '#fff' },
     backButton: { padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcdfe4', cursor: 'pointer', background: '#fff', fontWeight: '600', color: '#4a5568' },
     profileInfo: { display: 'flex', alignItems: 'center', gap: '20px', borderBottom: isScheduler ? 'none' : '1px solid #edf2f7', paddingBottom: isScheduler ? '0' : '24px', marginBottom: isScheduler ? '0' : '24px' },
     avatar: { width: '80px', height: '80px', backgroundColor: '#ebf4ff', color: '#3182ce', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '32px', fontWeight: 'bold' },
@@ -63,7 +92,12 @@ function MyProfile() {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.title}>Mój Profil</h1>
-        <button onClick={() => navigate('/dashboard')} style={styles.backButton}>Powrót do Dashboardu</button>
+        <div style={styles.headerActions}>
+          {!isScheduler && (
+            <button onClick={handleDownloadReport} style={styles.reportButton}>Pobierz raport PDF</button>
+          )}
+          <button onClick={() => navigate('/dashboard')} style={styles.backButton}>Powrót do Dashboardu</button>
+        </div>
       </header>
 
       <div style={styles.card}>

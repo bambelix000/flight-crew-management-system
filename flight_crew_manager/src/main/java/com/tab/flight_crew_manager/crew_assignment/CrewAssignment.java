@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "crew_assignments")
 @Getter
@@ -40,6 +42,12 @@ public class CrewAssignment {
 
     @Column(name = "rejection_reason")
     private String rejectionReason;
+
+    @Column(name = "actual_start_time")
+    private LocalDateTime actualStartTime;
+
+    @Column(name = "actual_end_time")
+    private LocalDateTime actualEndTime;
 
     public CrewAssignment(User user, Duty duty, RoleOnDuty roleOnDuty) {
         this.user = user;

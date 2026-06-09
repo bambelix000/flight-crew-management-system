@@ -21,10 +21,13 @@ function Dashboard() {
   const [assignUserId, setAssignUserId] = useState('');
   const [assignRole, setAssignRole] = useState('CABIN_CREW');
   const [assignError, setAssignError] = useState('');
+  const [assignUserSearch, setAssignUserSearch] = useState('');
 
   const [filterFlightNo, setFilterFlightNo] = useState('');
   const [filterDepAirport, setFilterDepAirport] = useState('');
   const [sortOrder, setSortOrder] = useState('asc'); 
+  const [crewSearch, setCrewSearch] = useState('');
+  const [crewSortOrder, setCrewSortOrder] = useState('hoursAsc');
 
   const [isAddFlightModalOpen, setIsAddFlightModalOpen] = useState(false);
   const [newFlightNo, setNewFlightNo] = useState('');
@@ -187,6 +190,7 @@ function Dashboard() {
         setAssignUserId('');
         setAssignRole('CABIN_CREW');
         setAssignError('');
+        setAssignUserSearch('');
         setIsAssignModalOpen(true);
       }
     } catch (err) {
@@ -246,6 +250,10 @@ function Dashboard() {
         return;
       }
       payload = { reason: reason };
+    } else if (action === 'start') {
+      if (!window.confirm("Rozpoczac te sluzbe teraz?")) return;
+    } else if (action === 'stop') {
+      if (!window.confirm("Zakonczyc te sluzbe teraz?")) return;
     }
     
     const token = localStorage.getItem('token');
@@ -317,6 +325,26 @@ function Dashboard() {
     const timeA = new Date(a.departureTime).getTime();
     const timeB = new Date(b.departureTime).getTime();
     return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+  });
+
+  const normalizedCrewSearch = crewSearch.trim().toLowerCase();
+  const visibleCrewStats = [...crewStats]
+    .filter(crew => {
+      const fullName = `${crew.name || ''} ${crew.surname || ''}`.toLowerCase();
+      const reversedName = `${crew.surname || ''} ${crew.name || ''}`.toLowerCase();
+      return fullName.includes(normalizedCrewSearch) || reversedName.includes(normalizedCrewSearch);
+    })
+    .sort((a, b) => {
+      const hoursA = a.totalAirBorneTimeMinutes || 0;
+      const hoursB = b.totalAirBorneTimeMinutes || 0;
+      return crewSortOrder === 'hoursAsc' ? hoursA - hoursB : hoursB - hoursA;
+    });
+
+  const normalizedAssignSearch = assignUserSearch.trim().toLowerCase();
+  const visibleUsersList = usersList.filter(u => {
+    const fullName = `${u.name || ''} ${u.surname || ''}`.toLowerCase();
+    const reversedName = `${u.surname || ''} ${u.name || ''}`.toLowerCase();
+    return fullName.includes(normalizedAssignSearch) || reversedName.includes(normalizedAssignSearch);
   });
 
   const selectedFlightsData = flights.filter(f => selectedFlights.includes(f.id));
@@ -418,26 +446,51 @@ function Dashboard() {
 
           {/* WIDOK: LIMITY ZAŁÓG (Tylko Scheduler/Admin) */}
           {activeTab === 'crewLimits' && (
-            <table style={styles.table}>
+            <>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Szukaj po imieniu lub nazwisku"
+                  value={crewSearch}
+                  onChange={(e) => setCrewSearch(e.target.value)}
+                  style={{ ...styles.filterInput, flex: '1 1 240px' }}
+                />
+                <select
+                  value={crewSortOrder}
+                  onChange={(e) => setCrewSortOrder(e.target.value)}
+                  style={{ ...styles.filterInput, flex: '0 1 260px' }}
+                >
+                  <option value="hoursAsc">Czas w powietrzu: najmniej</option>
+                  <option value="hoursDesc">Czas w powietrzu: najwiecej</option>
+                </select>
+              </div>
+
+              <table style={styles.table}>
               <thead>
                 <tr>
                   <th style={styles.th}>Pracownik</th>
+                  <th style={styles.th}>Telefon</th>
+                  <th style={styles.th}>Czas w powietrzu razem</th>
                   <th style={styles.th}>Ostatnie 20 dni</th>
                   <th style={styles.th}>Rok Kalendarzowy</th>
                   <th style={styles.th}>Zgłoszone Incapacity</th>
                 </tr>
               </thead>
               <tbody>
-                {crewStats.length === 0 ? (
-                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>Brak pracowników na liście.</td></tr>
+                {visibleCrewStats.length === 0 ? (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>Brak pracownikow na liscie.</td></tr>
                 ) : (
-                  crewStats.map(crew => {
+                  visibleCrewStats.map(crew => {
                     const nearLimit20 = (crew.twentyDaysAirTime || 0) >= 5100;
                     const nearLimit365 = (crew.annualAirTime || 0) >= 53700;
                     return (
                       <tr key={crew.id}>
                         <td style={styles.td}>
                           <strong>{crew.name} {crew.surname}</strong> <span style={{ color: '#718096', fontSize: '12px' }}>({crew.login})</span>
+                        </td>
+                        <td style={styles.td}>{crew.phoneNumber || 'Brak'}</td>
+                        <td style={styles.td}>
+                          {Math.floor((crew.totalAirBorneTimeMinutes || 0) / 60)}h {(crew.totalAirBorneTimeMinutes || 0) % 60}m
                         </td>
                         <td style={{ ...styles.td, color: nearLimit20 ? '#c53030' : 'inherit', fontWeight: nearLimit20 ? 'bold' : 'normal' }}>
                           {Math.floor((crew.twentyDaysAirTime || 0) / 60)}h / 90h
@@ -455,7 +508,8 @@ function Dashboard() {
                   })
                 )}
               </tbody>
-            </table>
+              </table>
+            </>
           )}
 
           {(activeTab === 'unassigned' || activeTab === 'allFlights') && (
@@ -543,6 +597,8 @@ function Dashboard() {
                   const isPending = !isScheduler && myStatus === 'PENDING';
                   const isRejected = !isScheduler && myStatus === 'REJECTED';
                   const isAccepted = !isScheduler && myStatus === 'ACCEPTED';
+                  const hasActualStart = Boolean(myAssignment?.actualStartTime);
+                  const hasActualEnd = Boolean(myAssignment?.actualEndTime);
 
                   let blockStyle = { ...styles.dutyBlock };
                   let headerBg = '#f8f9fa';
@@ -569,7 +625,7 @@ function Dashboard() {
                   <div key={duty.id} style={blockStyle}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', backgroundColor: headerBg, cursor: 'pointer', fontWeight: '600', color: headerColor }} onClick={() => toggleDutyExpand(duty.id)}>
                       <span>Służba #{duty.id}{statusText}</span>
-                      <span>Czas lotów: {Math.floor(duty.workTimeMinutes / 60)}h {duty.workTimeMinutes % 60}m</span>
+                      <span>Czas w powietrzu: {Math.floor((duty.airTimeMinutes || 0) / 60)}h {(duty.airTimeMinutes || 0) % 60}m</span>
                       <span>{expandedDutyId === duty.id ? '▲ Zwiń' : '▼ Rozwiń'}</span>
                     </div>
                     
@@ -584,6 +640,18 @@ function Dashboard() {
                             <span style={{ color: '#2b6cb0', fontWeight: '600', fontSize: '14px' }}>Zakończenie (Check-out):</span>
                             <span style={{ fontWeight: '700', color: '#2c5282' }}>{duty.dutyEndTime ? new Date(duty.dutyEndTime).toLocaleString('pl-PL') : 'Brak'}</span>
                           </div>
+                          {!isScheduler && myAssignment?.actualStartTime && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #bee3f8' }}>
+                              <span style={{ color: '#2b6cb0', fontWeight: '600', fontSize: '14px' }}>Rzeczywisty start:</span>
+                              <span style={{ fontWeight: '700', color: '#2c5282' }}>{new Date(myAssignment.actualStartTime).toLocaleString('pl-PL')}</span>
+                            </div>
+                          )}
+                          {!isScheduler && myAssignment?.actualEndTime && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                              <span style={{ color: '#2b6cb0', fontWeight: '600', fontSize: '14px' }}>Rzeczywisty stop:</span>
+                              <span style={{ fontWeight: '700', color: '#2c5282' }}>{new Date(myAssignment.actualEndTime).toLocaleString('pl-PL')}</span>
+                            </div>
+                          )}
                         </div>
 
                         <h4 style={{ ...styles.detailsTitle, marginBottom: '10px' }}>Loty w tej służbie:</h4>
@@ -622,7 +690,14 @@ function Dashboard() {
                         ) : (
                           duty.assignedCrew.map(crew => (
                             <div key={crew.userId} style={{ ...styles.innerRow, flexWrap: 'wrap' }}>
-                              <span>{crew.name} {crew.surname}</span>
+                              <span>
+                                <strong>{crew.name} {crew.surname}</strong>
+                                {isScheduler && (
+                                  <span style={{ color: '#718096', fontSize: '12px', marginLeft: '8px' }}>
+                                    tel. {crew.phoneNumber || 'Brak'}
+                                  </span>
+                                )}
+                              </span>
                               <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <span style={styles.badge}>{crew.roleOnDuty}</span>
                                 
@@ -646,6 +721,11 @@ function Dashboard() {
                                   <strong>Powód odrzucenia:</strong> {crew.rejectionReason}
                                 </div>
                               )}
+                              {(crew.actualStartTime || crew.actualEndTime) && (
+                                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#4a5568', backgroundColor: '#f8f9fa', padding: '6px', borderRadius: '4px' }}>
+                                  Start: {crew.actualStartTime ? new Date(crew.actualStartTime).toLocaleString('pl-PL') : 'brak'} | Stop: {crew.actualEndTime ? new Date(crew.actualEndTime).toLocaleString('pl-PL') : 'brak'}
+                                </div>
+                              )}
                             </div>
                           ))
                         )}
@@ -665,10 +745,27 @@ function Dashboard() {
 
                             {isAccepted && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                                <span style={{ color: '#285e61', fontWeight: 'bold' }}>Służba została przez Ciebie zaakceptowana.</span>
-                                <button style={{ ...styles.actionBtn, backgroundColor: '#fff5f5', color: '#c53030', width: '100%', border: '1px solid #feb2b2' }} onClick={() => handleDutyAction(duty.id, 'reject')}>
-                                  Zgłoś nagłą niedyspozycję
-                                </button>
+                                <span style={{ color: '#285e61', fontWeight: 'bold' }}>
+                                  {hasActualEnd ? 'Sluzba zakonczona.' : hasActualStart ? 'Sluzba jest w toku.' : 'Sluzba zaakceptowana.'}
+                                </span>
+
+                                {!hasActualStart && (
+                                  <button style={{ ...styles.actionBtn, backgroundColor: '#c6f6d5', color: '#2f855a', width: '100%' }} onClick={() => handleDutyAction(duty.id, 'start')}>
+                                    Start sluzby
+                                  </button>
+                                )}
+
+                                {hasActualStart && !hasActualEnd && (
+                                  <button style={{ ...styles.actionBtn, backgroundColor: '#bee3f8', color: '#2b6cb0', width: '100%' }} onClick={() => handleDutyAction(duty.id, 'stop')}>
+                                    Stop sluzby
+                                  </button>
+                                )}
+
+                                {!hasActualEnd && (
+                                  <button style={{ ...styles.actionBtn, backgroundColor: '#fff5f5', color: '#c53030', width: '100%', border: '1px solid #feb2b2' }} onClick={() => handleDutyAction(duty.id, 'reject')}>
+                                    Zglos nagla niedyspozycje
+                                  </button>
+                                )}
                               </div>
                             )}
 
@@ -816,18 +913,25 @@ function Dashboard() {
 
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', color: '#4a5568', fontSize: '14px', fontWeight: '600' }}>Wybierz pracownika:</label>
+              <input
+                type="text"
+                value={assignUserSearch}
+                onChange={(e) => setAssignUserSearch(e.target.value)}
+                placeholder="Szukaj po imieniu lub nazwisku"
+                style={styles.selectInput}
+              />
               <select 
                 value={assignUserId} 
                 onChange={(e) => setAssignUserId(e.target.value)}
                 style={styles.selectInput}
               >
                 <option value="" disabled>-- Wybierz pracownika --</option>
-                {usersList.length === 0 && (
+                {visibleUsersList.length === 0 && (
                   <option value="" disabled>Brak dostępnych pracowników</option>
                 )}
-                {usersList.map(u => (
+                {visibleUsersList.map(u => (
                   <option key={u.id} value={u.id}>
-                    {u.name} {u.surname}
+                    {u.name} {u.surname} | tel. {u.phoneNumber || 'Brak'}
                   </option>
                 ))}
               </select>

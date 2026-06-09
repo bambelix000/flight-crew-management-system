@@ -41,7 +41,21 @@ public class DutyService {
             throw new IllegalArgumentException("Nie można utworzyć służby bez lotów.");
         }
 
-        List<Flight> selectedFlights = flightRepository.findAllById(flightIds);
+        List<Long> uniqueFlightIds = flightIds.stream().distinct().toList();
+        List<Flight> selectedFlights = flightRepository.findAllByIdForUpdate(uniqueFlightIds);
+
+        if (selectedFlights.size() != uniqueFlightIds.size()) {
+            throw new IllegalArgumentException("Nie znaleziono wszystkich wybranych lotow.");
+        }
+
+        List<String> alreadyAssignedFlights = selectedFlights.stream()
+                .filter(flight -> flight.getDuty() != null)
+                .map(Flight::getFlightNumber)
+                .toList();
+
+        if (!alreadyAssignedFlights.isEmpty()) {
+            throw new IllegalStateException("Te loty sa juz przypisane do sluzby: " + String.join(", ", alreadyAssignedFlights));
+        }
 
         selectedFlights.sort(Comparator.comparing(Flight::getDepartureTime));
 
@@ -98,26 +112,21 @@ public class DutyService {
 
         int rolling20DaysMinutes = user.getAssignments().stream()
                 .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
-                .map(CrewAssignment::getDuty)
-                .filter(d -> d.getDutyStartTime().isAfter(newDutyStart.minusDays(20)) && d.getDutyStartTime().isBefore(newDutyStart))
-                .mapToInt(Duty::getAirTimeMinutes).sum() + duty.getAirTimeMinutes();
+                .filter(a -> a.getDuty().getDutyStartTime().isAfter(newDutyStart.minusDays(20)) && a.getDuty().getDutyStartTime().isBefore(newDutyStart))
+                .mapToInt(this::getTrackedAirTimeMinutes).sum() + getPlannedAirTimeMinutes(duty);
 
         int rolling365DaysMinutes = user.getAssignments().stream()
                 .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
-                .map(CrewAssignment::getDuty)
-                .filter(d -> d.getDutyStartTime().isAfter(newDutyStart.minusDays(365)) && d.getDutyStartTime().isBefore(newDutyStart))
-                .mapToInt(Duty::getAirTimeMinutes).sum() + duty.getAirTimeMinutes();
+                .filter(a -> a.getDuty().getDutyStartTime().isAfter(newDutyStart.minusDays(365)) && a.getDuty().getDutyStartTime().isBefore(newDutyStart))
+                .mapToInt(this::getTrackedAirTimeMinutes).sum() + getPlannedAirTimeMinutes(duty);
 
         if (rolling20DaysMinutes > 5400) throw new IllegalStateException("BLOKADA: Przekroczenie 90h w 20 dni od daty lotu.");
         if (rolling365DaysMinutes > 54000) throw new IllegalStateException("BLOKADA: Przekroczenie 900h w rok od daty lotu.");
 
-        int dutyDurationMinutes = 0;
-        if (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) {
-            dutyDurationMinutes = (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes();
-        }
+        int dutyDurationMinutes = getPlannedDutyDurationMinutes(duty);
 
-        user.setTotalAirBorneTimeMinutes((user.getTotalAirBorneTimeMinutes() != null ? user.getTotalAirBorneTimeMinutes() : 0) + duty.getAirTimeMinutes());
-        user.setTotalWorkTimeMinutes((user.getTotalWorkTimeMinutes() != null ? user.getTotalWorkTimeMinutes() : 0) + duty.getWorkTimeMinutes());
+        user.setTotalAirBorneTimeMinutes((user.getTotalAirBorneTimeMinutes() != null ? user.getTotalAirBorneTimeMinutes() : 0) + getPlannedAirTimeMinutes(duty));
+        user.setTotalWorkTimeMinutes((user.getTotalWorkTimeMinutes() != null ? user.getTotalWorkTimeMinutes() : 0) + getPlannedWorkTimeMinutes(duty));
         user.setTotalDutyTimeMinutes((user.getTotalDutyTimeMinutes() != null ? user.getTotalDutyTimeMinutes() : 0) + dutyDurationMinutes);
 
         CrewAssignment assignment = new CrewAssignment(user, duty, role);
@@ -155,15 +164,120 @@ public class DutyService {
         dto.setWorkTimeMinutes(duty.getWorkTimeMinutes());
         dto.setAirTimeMinutes(duty.getAirTimeMinutes());
         dto.setFlights(duty.getFlights().stream().map(f -> new FlightSummaryDto(f.getId(), f.getFlightNumber(), f.getDepartureAirport().getAirportCode() + " - " + f.getArrivalAirport().getAirportCode())).collect(Collectors.toList()));
-        dto.setAssignedCrew(duty.getAssignments().stream().map(a -> new CrewMemberDto(a.getUser().getId(), a.getUser().getLogin(), a.getUser().getName(), a.getUser().getSurname(), a.getRoleOnDuty().name(), a.getStatus().name(), a.getRejectionReason())).collect(Collectors.toList()));
+        dto.setAssignedCrew(duty.getAssignments().stream()
+                .map(a -> new CrewMemberDto(
+                        a.getUser().getId(),
+                        a.getUser().getLogin(),
+                        a.getUser().getName(),
+                        a.getUser().getSurname(),
+                        a.getUser().getPhoneNumber(),
+                        a.getRoleOnDuty().name(),
+                        a.getStatus().name(),
+                        a.getRejectionReason(),
+                        a.getActualStartTime(),
+                        a.getActualEndTime()))
+                .collect(Collectors.toList()));
         return dto;
     }
 
     @Transactional
-    public void acceptDuty(String login, Long dutyId) {
+    public void startDuty(String login, Long dutyId) {
+        CrewAssignment assignment = findAssignment(login, dutyId);
+
+        if (assignment.getStatus() != AssignmentStatus.ACCEPTED) {
+            throw new IllegalStateException("Sluzbe mozna rozpoczac dopiero po zaakceptowaniu.");
+        }
+        if (assignment.getActualStartTime() != null) {
+            throw new IllegalStateException("Sluzba zostala juz rozpoczeta.");
+        }
+
+        assignment.setActualStartTime(LocalDateTime.now());
+        assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public void stopDuty(String login, Long dutyId) {
+        CrewAssignment assignment = findAssignment(login, dutyId);
+
+        if (assignment.getStatus() != AssignmentStatus.ACCEPTED) {
+            throw new IllegalStateException("Sluzbe mozna zakonczyc tylko po zaakceptowaniu.");
+        }
+        if (assignment.getActualStartTime() == null) {
+            throw new IllegalStateException("Najpierw rozpocznij sluzbe.");
+        }
+        if (assignment.getActualEndTime() != null) {
+            throw new IllegalStateException("Sluzba zostala juz zakonczona.");
+        }
+
+        LocalDateTime actualEndTime = LocalDateTime.now();
+        assignment.setActualEndTime(actualEndTime);
+
+        User user = assignment.getUser();
+        Duty duty = assignment.getDuty();
+
+        user.setTotalAirBorneTimeMinutes(Math.max(0,
+                safeMinutes(user.getTotalAirBorneTimeMinutes()) - getPlannedAirTimeMinutes(duty) + getTrackedAirTimeMinutes(assignment)));
+        user.setTotalWorkTimeMinutes(Math.max(0,
+                safeMinutes(user.getTotalWorkTimeMinutes()) - getPlannedWorkTimeMinutes(duty) + getTrackedWorkTimeMinutes(assignment)));
+        user.setTotalDutyTimeMinutes(Math.max(0,
+                safeMinutes(user.getTotalDutyTimeMinutes()) - getPlannedDutyDurationMinutes(duty) + getTrackedDutyDurationMinutes(assignment)));
+
+        userRepository.save(user);
+        assignmentRepository.save(assignment);
+    }
+
+    private CrewAssignment findAssignment(String login, Long dutyId) {
         User user = userRepository.findByLogin(login).orElseThrow();
-        CrewAssignment a = user.getAssignments().stream()
-                .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
+        return user.getAssignments().stream()
+                .filter(as -> as.getDuty().getId().equals(dutyId))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private int getPlannedDutyDurationMinutes(Duty duty) {
+        if (duty.getDutyStartTime() == null || duty.getDutyEndTime() == null) {
+            return 0;
+        }
+        return (int) Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes();
+    }
+
+    private int getPlannedWorkTimeMinutes(Duty duty) {
+        return duty.getWorkTimeMinutes() != null ? duty.getWorkTimeMinutes() : 0;
+    }
+
+    private int getPlannedAirTimeMinutes(Duty duty) {
+        return duty.getAirTimeMinutes() != null ? duty.getAirTimeMinutes() : 0;
+    }
+
+    private int getTrackedDutyDurationMinutes(CrewAssignment assignment) {
+        if (assignment.getActualStartTime() != null && assignment.getActualEndTime() != null) {
+            return (int) Duration.between(assignment.getActualStartTime(), assignment.getActualEndTime()).toMinutes();
+        }
+        return getPlannedDutyDurationMinutes(assignment.getDuty());
+    }
+
+    private int getTrackedWorkTimeMinutes(CrewAssignment assignment) {
+        if (assignment.getActualStartTime() != null && assignment.getActualEndTime() != null) {
+            int actualDutyMinutes = getTrackedDutyDurationMinutes(assignment);
+            return Math.min(getPlannedWorkTimeMinutes(assignment.getDuty()), Math.max(0, actualDutyMinutes - 60));
+        }
+        return getPlannedWorkTimeMinutes(assignment.getDuty());
+    }
+
+    private int getTrackedAirTimeMinutes(CrewAssignment assignment) {
+        if (assignment.getActualStartTime() != null && assignment.getActualEndTime() != null) {
+            return Math.min(getPlannedAirTimeMinutes(assignment.getDuty()), getTrackedWorkTimeMinutes(assignment));
+        }
+        return getPlannedAirTimeMinutes(assignment.getDuty());
+    }
+
+    private int safeMinutes(Integer minutes) {
+        return minutes != null ? minutes : 0;
+    }
+
+    @Transactional
+    public void acceptDuty(String login, Long dutyId) {
+        CrewAssignment a = findAssignment(login, dutyId);
         a.setStatus(AssignmentStatus.ACCEPTED);
         assignmentRepository.save(a);
     }
@@ -180,12 +294,11 @@ public class DutyService {
         a.setRejectionReason(reason);
         user.setIncapacityCounter(user.getIncapacityCounter() + 1);
 
-        int dutyDurationMinutes = (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) ?
-                (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes() : 0;
+        int dutyDurationMinutes = getTrackedDutyDurationMinutes(a);
 
-        user.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() - duty.getAirTimeMinutes());
-        user.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() - duty.getWorkTimeMinutes());
-        user.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() - dutyDurationMinutes);
+        user.setTotalAirBorneTimeMinutes(Math.max(0, safeMinutes(user.getTotalAirBorneTimeMinutes()) - getTrackedAirTimeMinutes(a)));
+        user.setTotalWorkTimeMinutes(Math.max(0, safeMinutes(user.getTotalWorkTimeMinutes()) - getTrackedWorkTimeMinutes(a)));
+        user.setTotalDutyTimeMinutes(Math.max(0, safeMinutes(user.getTotalDutyTimeMinutes()) - dutyDurationMinutes));
 
         userRepository.save(user);
         assignmentRepository.save(a);
@@ -198,13 +311,12 @@ public class DutyService {
         CrewAssignment a = user.getAssignments().stream()
                 .filter(as -> as.getDuty().getId().equals(dutyId)).findFirst().orElseThrow();
 
-        int dutyDurationMinutes = (duty.getDutyStartTime() != null && duty.getDutyEndTime() != null) ?
-                (int) java.time.Duration.between(duty.getDutyStartTime(), duty.getDutyEndTime()).toMinutes() : 0;
+        int dutyDurationMinutes = getTrackedDutyDurationMinutes(a);
 
         if (a.getStatus() != AssignmentStatus.REJECTED) {
-            user.setTotalAirBorneTimeMinutes(user.getTotalAirBorneTimeMinutes() - duty.getAirTimeMinutes());
-            user.setTotalWorkTimeMinutes(user.getTotalWorkTimeMinutes() - duty.getWorkTimeMinutes());
-            user.setTotalDutyTimeMinutes(user.getTotalDutyTimeMinutes() - dutyDurationMinutes);
+            user.setTotalAirBorneTimeMinutes(Math.max(0, safeMinutes(user.getTotalAirBorneTimeMinutes()) - getTrackedAirTimeMinutes(a)));
+            user.setTotalWorkTimeMinutes(Math.max(0, safeMinutes(user.getTotalWorkTimeMinutes()) - getTrackedWorkTimeMinutes(a)));
+            user.setTotalDutyTimeMinutes(Math.max(0, safeMinutes(user.getTotalDutyTimeMinutes()) - dutyDurationMinutes));
         }
 
         user.getAssignments().remove(a);

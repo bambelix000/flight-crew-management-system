@@ -5,6 +5,8 @@ import com.tab.flight_crew_manager.user.dto.PhoneUpdateDto;
 import com.tab.flight_crew_manager.user.dto.StatsDataDto;
 import com.tab.flight_crew_manager.user.dto.UserUpdateDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -51,6 +53,15 @@ public class UserController {
         StatsDataDto stats = userService.getStats(principal);
 
         return ResponseEntity.ok(stats);
+    }
+
+    @GetMapping("/my-report")
+    public ResponseEntity<byte[]> getMyReport(Principal principal) {
+        byte[] report = userService.generateMyReport(principal);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=flight-crew-report.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(report);
     }
 
     @PreAuthorize("hasAnyAuthority('ADMIN', 'SCHEDULER')")

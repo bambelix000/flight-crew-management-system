@@ -19,10 +19,15 @@ public class DutyController {
 
     private final DutyService dutyService;
 
+    @PreAuthorize("hasAuthority('SCHEDULER') or hasAuthority('ADMIN')")
     @PostMapping("/create-from-flights")
-    public ResponseEntity<Duty> createDuty(@RequestBody List<Long> flightIds) {
-        Duty createdDuty = dutyService.createDutyFromFlights(flightIds);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdDuty);
+    public ResponseEntity<?> createDuty(@RequestBody List<Long> flightIds) {
+        try {
+            Duty createdDuty = dutyService.createDutyFromFlights(flightIds);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdDuty);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PostMapping("/{dutyId}/assign")
@@ -45,6 +50,26 @@ public class DutyController {
     public ResponseEntity<Void> rejectDuty(@PathVariable Long dutyId, @RequestBody ActionRequestDto request, Principal principal) {
         dutyService.rejectDuty(principal.getName(), dutyId, request.getReason());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{dutyId}/start")
+    public ResponseEntity<String> startDuty(@PathVariable Long dutyId, Principal principal) {
+        try {
+            dutyService.startDuty(principal.getName(), dutyId);
+            return ResponseEntity.ok("STARTED");
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{dutyId}/stop")
+    public ResponseEntity<String> stopDuty(@PathVariable Long dutyId, Principal principal) {
+        try {
+            dutyService.stopDuty(principal.getName(), dutyId);
+            return ResponseEntity.ok("STOPPED");
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @GetMapping("/my-duties")
