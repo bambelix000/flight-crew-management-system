@@ -1,0 +1,4 @@
+- Zainstaluj 'Dev Containers' rozszerzenie
+- Ctrl+Shift+P -> Reopen in Container
+- w terminalu (nie w kontenerze) odpal: docker-compose up -d db frontend
+- wejdz na http://localhost:3000 i wypelnij register (jak bedzie na zielono ze git to jestes z backendem polaczony :)
