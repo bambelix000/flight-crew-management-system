@@ -3,20 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 function Auth() {
   const navigate = useNavigate();
-  const [isLoginView, setIsLoginView] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [showPassword, setShowPassword] = useState(false);
-  
   const [loginData, setLoginData] = useState({ login: '', password: '' });
-  const [regData, setRegData] = useState({ login: '', password: '', name: '', surname: '', phoneNumber: '', userRole: 'CREWMEMBER' });
-
-  const switchView = (toLogin) => {
-    setIsLoginView(toLogin);
-    setMessage({ text: '', type: '' });
-    setShowPassword(false);
-    setLoginData({ login: '', password: '' });
-    setRegData({ login: '', password: '', name: '', surname: '', phoneNumber: '', userRole: 'CREWMEMBER' });
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -26,48 +15,22 @@ function Auth() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
       });
-      
+
       if (res.ok) {
         const authResponse = await res.json();
-        
-        // Zapisujemy token JWT do pamięci przeglądarki
+
         localStorage.setItem('token', authResponse.token);
-        
-        // Zapisujemy TYLKO to, co przyszło z nowego AuthResponse
         localStorage.setItem('user', JSON.stringify({
-            login: authResponse.login,
-            userRole: authResponse.role
+          login: authResponse.login,
+          userRole: authResponse.role
         }));
-        
-        navigate('/dashboard'); 
+
+        navigate('/dashboard');
       } else {
         setMessage({ text: 'Błędny login lub hasło', type: 'error' });
       }
-    } catch (err) { 
-      setMessage({ text: 'Błąd połączenia z serwerem', type: 'error' }); 
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('http://localhost:8080/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regData)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessage({ text: `Zarejestrowano pomyślnie: ${data.name} ${data.surname}! Możesz się zalogować.`, type: 'success' });
-        setIsLoginView(true);
-        setShowPassword(false);
-        setLoginData({ login: regData.login, password: '' });
-        setRegData({ login: '', password: '', name: '', surname: '', phoneNumber: '', userRole: 'CREWMEMBER' });
-      } else {
-        setMessage({ text: 'Błąd rejestracji. Login może być zajęty.', type: 'error' });
-      }
-    } catch (err) { 
-      setMessage({ text: 'Błąd połączenia z serwerem', type: 'error' }); 
+    } catch (err) {
+      setMessage({ text: 'Błąd połączenia z serwerem', type: 'error' });
     }
   };
 
@@ -83,24 +46,29 @@ function Auth() {
     passwordInput: { width: '100%', padding: '12px 16px', paddingRight: '46px', border: '1px solid #dcdfe4', borderRadius: '8px', fontSize: '15px', outline: 'none', boxSizing: 'border-box' },
     iconButton: { position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#a3acb9' },
     button: { width: '100%', padding: '12px', backgroundColor: '#5469d4', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' },
-    footer: { marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#4f566b' },
-    link: { color: '#5469d4', fontWeight: '600', cursor: 'pointer', border: 'none', background: 'none', padding: '0', fontSize: '14px', textDecoration: 'none' },
-    message: { padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center', 
-               backgroundColor: message.type === 'success' ? '#e3f9e5' : '#fff1f0', 
-               color: message.type === 'success' ? '#1f7a28' : '#cf1322', 
-               border: `1px solid ${message.type === 'success' ? '#cdedd0' : '#ffa39e'}`,
-               display: message.text ? 'block' : 'none' }
+    footer: { marginTop: '24px', textAlign: 'center', fontSize: '13px', color: '#718096', lineHeight: 1.5 },
+    message: {
+      padding: '12px',
+      borderRadius: '8px',
+      marginBottom: '24px',
+      fontSize: '14px',
+      textAlign: 'center',
+      backgroundColor: '#fff1f0',
+      color: '#cf1322',
+      border: '1px solid #ffa39e',
+      display: message.text ? 'block' : 'none'
+    }
   };
 
   const EyeIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
     </svg>
   );
 
   const EyeOffIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 
@@ -108,73 +76,46 @@ function Auth() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h1 style={styles.title}>Flight Crew</h1>
-        <p style={styles.subtitle}>{isLoginView ? 'Zaloguj się do panelu' : 'Utwórz nowe konto'}</p>
-        
+        <p style={styles.subtitle}>Zaloguj się do panelu</p>
+
         <div style={styles.message}>{message.text}</div>
 
-        <form onSubmit={isLoginView ? handleLogin : handleRegister}>
-          {!isLoginView && (
-            <>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Imię i Nazwisko</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input style={styles.input} type="text" placeholder="np. Jan" required
-                         value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} />
-                  <input style={styles.input} type="text" placeholder="np. Kowalski" required
-                         value={regData.surname} onChange={e => setRegData({...regData, surname: e.target.value})} />
-                </div>
-              </div>
-            </>
-          )}
-
+        <form onSubmit={handleLogin}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Login</label>
-            <input style={styles.input} type="text" placeholder="np. jkowalski" required
-                   value={isLoginView ? loginData.login : regData.login}
-                   onChange={e => isLoginView ? setLoginData({...loginData, login: e.target.value}) : setRegData({...regData, login: e.target.value})} />
+            <input
+              style={styles.input}
+              type="text"
+              placeholder="np. jkowalski"
+              required
+              value={loginData.login}
+              onChange={e => setLoginData({ ...loginData, login: e.target.value })}
+            />
           </div>
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Hasło</label>
             <div style={styles.passwordContainer}>
-              <input style={styles.passwordInput} type={showPassword ? "text" : "password"} placeholder="" required
-                     value={isLoginView ? loginData.password : regData.password}
-                     onChange={e => isLoginView ? setLoginData({...loginData, password: e.target.value}) : setRegData({...regData, password: e.target.value})} />
-              <button type="button" style={styles.iconButton} onClick={() => setShowPassword(!showPassword)}>
+              <input
+                style={styles.passwordInput}
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={loginData.password}
+                onChange={e => setLoginData({ ...loginData, password: e.target.value })}
+              />
+              <button type="button" style={styles.iconButton} onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ukryj hasło' : 'Pokaż hasło'}>
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
           </div>
 
-          {!isLoginView && (
-            <>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Numer telefonu</label>
-                <input style={styles.input} type="text" placeholder="+48 123 456 789" required
-                       value={regData.phoneNumber} onChange={e => setRegData({...regData, phoneNumber: e.target.value})} />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Rola w systemie</label>
-                <select style={styles.input} value={regData.userRole} onChange={e => setRegData({...regData, userRole: e.target.value})}>
-                  <option value="CREWMEMBER">Członek Załogi</option>
-                  <option value="SCHEDULER">Planista</option>
-                  <option value="ADMIN">Administrator</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          <button type="submit" style={isLoginView ? styles.button : {...styles.button, backgroundColor: '#2ecc71'}}>
-            {isLoginView ? 'Zaloguj się' : 'Utwórz konto'}
+          <button type="submit" style={styles.button}>
+            Zaloguj się
           </button>
         </form>
 
         <div style={styles.footer}>
-          {isLoginView ? (
-            <>Nie masz konta? <button style={styles.link} onClick={() => switchView(false)}>Zarejestruj się</button></>
-          ) : (
-            <>Masz już konto? <button style={styles.link} onClick={() => switchView(true)}>Zaloguj się</button></>
-          )}
+          Nowe konta tworzy administrator w panelu użytkowników.
         </div>
       </div>
     </div>

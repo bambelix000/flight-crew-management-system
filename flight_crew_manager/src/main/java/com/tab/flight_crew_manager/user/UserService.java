@@ -39,6 +39,24 @@ public class UserService {
         if (userRepository.existsByLogin(user.getLogin())) {
             throw new IllegalStateException("Login jest już zajęty");
         }
+        if (user.getUserRole() == null) {
+            user.setUserRole(UserRole.CREWMEMBER);
+        }
+        if (user.getAnnualAirTime() == null) {
+            user.setAnnualAirTime(0);
+        }
+        if (user.getTwentyDaysAirTime() == null) {
+            user.setTwentyDaysAirTime(0);
+        }
+        if (user.getTotalAirBorneTimeMinutes() == null) {
+            user.setTotalAirBorneTimeMinutes(0);
+        }
+        if (user.getTotalDutyTimeMinutes() == null) {
+            user.setTotalDutyTimeMinutes(0);
+        }
+        if (user.getTotalWorkTimeMinutes() == null) {
+            user.setTotalWorkTimeMinutes(0);
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }

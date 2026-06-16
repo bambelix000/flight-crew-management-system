@@ -28,7 +28,7 @@ public class Duty {
     private Integer workTimeMinutes;
     private Integer airTimeMinutes;
 
-    @OneToMany(mappedBy = "duty", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "duty", cascade = CascadeType.ALL)
     private List<Flight> flights = new ArrayList<>();
 
     public void addFlight(Flight flight) {

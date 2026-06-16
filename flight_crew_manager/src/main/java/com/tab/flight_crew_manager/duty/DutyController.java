@@ -30,6 +30,18 @@ public class DutyController {
         }
     }
 
+    @PreAuthorize("hasAuthority('SCHEDULER') or hasAuthority('ADMIN')")
+    @PutMapping("/{dutyId}/flights")
+    public ResponseEntity<String> updateDutyFlights(@PathVariable Long dutyId, @RequestBody List<Long> flightIds) {
+        try {
+            dutyService.updateDutyFlights(dutyId, flightIds);
+            return ResponseEntity.ok("UPDATED");
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasAuthority('SCHEDULER') or hasAuthority('ADMIN')")
     @PostMapping("/{dutyId}/assign")
     public ResponseEntity<String> assignUserToDuty(@PathVariable Long dutyId, @RequestBody DutyAssignmentDto request) {
         try {
@@ -84,6 +96,7 @@ public class DutyController {
         return ResponseEntity.ok(dutyService.getAllDuties());
     }
 
+    @PreAuthorize("hasAuthority('SCHEDULER') or hasAuthority('ADMIN')")
     @DeleteMapping("/{dutyId}/crew/{userId}")
     public ResponseEntity<Void> removeUserFromDuty(@PathVariable Long dutyId, @PathVariable Long userId) {
         dutyService.removeUserFromDuty(userId, dutyId);

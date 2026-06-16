@@ -35,6 +35,11 @@ function Dashboard() {
   const [newArrAirportId, setNewArrAirportId] = useState('');
   const [newDepTime, setNewDepTime] = useState('');
   const [newArrTime, setNewArrTime] = useState('');
+  const [isEditDutyFlightsModalOpen, setIsEditDutyFlightsModalOpen] = useState(false);
+  const [editingDuty, setEditingDuty] = useState(null);
+  const [editDutyFlightIds, setEditDutyFlightIds] = useState([]);
+  const [editFlightSearch, setEditFlightSearch] = useState('');
+  const [editDutyError, setEditDutyError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -168,6 +173,57 @@ function Dashboard() {
       }
     } catch (err) {
       alert("Wystąpił błąd komunikacji z serwerem.");
+    }
+  };
+
+  const openEditDutyFlightsModal = (duty) => {
+    setEditingDuty(duty);
+    setEditDutyFlightIds((duty.flights || []).map(flight => flight.id));
+    setEditFlightSearch('');
+    setEditDutyError('');
+    setIsEditDutyFlightsModalOpen(true);
+  };
+
+  const closeEditDutyFlightsModal = () => {
+    setIsEditDutyFlightsModalOpen(false);
+    setEditingDuty(null);
+    setEditDutyFlightIds([]);
+    setEditFlightSearch('');
+    setEditDutyError('');
+  };
+
+  const toggleEditDutyFlight = (flightId) => {
+    setEditDutyFlightIds(prev =>
+      prev.includes(flightId) ? prev.filter(id => id !== flightId) : [...prev, flightId]
+    );
+  };
+
+  const handleSaveDutyFlights = async () => {
+    if (!editingDuty || editDutyFlightIds.length === 0) {
+      setEditDutyError('Służba musi zawierać co najmniej jeden lot.');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8080/duties/${editingDuty.id}/flights`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editDutyFlightIds)
+      });
+
+      if (res.ok) {
+        closeEditDutyFlightsModal();
+        setRefreshKey(prev => prev + 1);
+      } else {
+        const errorText = await res.text();
+        setEditDutyError(errorText || 'Nie udało się zaktualizować służby.');
+      }
+    } catch (err) {
+      setEditDutyError('Błąd połączenia z serwerem.');
     }
   };
 
@@ -348,6 +404,35 @@ function Dashboard() {
   });
 
   const selectedFlightsData = flights.filter(f => selectedFlights.includes(f.id));
+  const editDutySelectedFlights = flights
+    .filter(f => editDutyFlightIds.includes(f.id))
+    .sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
+  const normalizedEditFlightSearch = editFlightSearch.trim().toLowerCase();
+  const editDutyAvailableFlights = flights
+    .filter(f => {
+      const isAssignedToOtherDuty = duties.some(d =>
+        d.id !== editingDuty?.id && (d.flights || []).some(dutyFlight => dutyFlight.id === f.id)
+      );
+      const route = `${f.departureAirport?.airportCode || ''} ${f.arrivalAirport?.airportCode || ''}`.toLowerCase();
+      const matchesSearch = f.flightNumber.toLowerCase().includes(normalizedEditFlightSearch) || route.includes(normalizedEditFlightSearch);
+      return !isAssignedToOtherDuty && matchesSearch;
+    })
+    .sort((a, b) => new Date(a.departureTime) - new Date(b.departureTime));
+
+  let editPreviewStartTime = '';
+  let editPreviewEndTime = '';
+
+  if (isEditDutyFlightsModalOpen && editDutySelectedFlights.length > 0) {
+    const firstFlight = editDutySelectedFlights[0];
+    const lastFlight = editDutySelectedFlights[editDutySelectedFlights.length - 1];
+
+    const startObj = new Date(firstFlight.departureTime);
+    startObj.setHours(startObj.getHours() - 1);
+    editPreviewStartTime = startObj.toLocaleString('pl-PL');
+
+    const endObj = new Date(lastFlight.arrivalTime);
+    editPreviewEndTime = endObj.toLocaleString('pl-PL');
+  }
 
   let previewStartTime = '';
   let previewEndTime = '';
@@ -388,9 +473,11 @@ function Dashboard() {
     modalContent: { backgroundColor: 'white', padding: '32px', borderRadius: '12px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
     selectInput: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', marginTop: '8px', backgroundColor: '#fff' },
     assignButton: { padding: '6px 12px', fontSize: '12px', backgroundColor: '#fff', color: '#3182ce', border: '1px solid #3182ce', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
+    editButton: { padding: '6px 12px', fontSize: '12px', backgroundColor: '#fff', color: '#744210', border: '1px solid #d69e2e', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
     errorMessage: { padding: '12px', backgroundColor: '#fed7d7', color: '#c53030', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500' },
     actionBtn: { flex: 1, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none', textAlign: 'center', transition: '0.2s' },
     removeBtn: { padding: '4px 8px', marginLeft: '10px', backgroundColor: '#fff5f5', color: '#c53030', border: '1px solid #feb2b2', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' },
+    smallAddBtn: { padding: '5px 10px', backgroundColor: '#ebf8ff', color: '#2b6cb0', border: '1px solid #90cdf4', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' },
     filterInput: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', outline: 'none' },
     btnPrimary: { padding: '10px 20px', backgroundColor: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
     btnSuccess: { padding: '8px 16px', backgroundColor: '#38a169', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', marginRight: '10px' }
@@ -654,7 +741,14 @@ function Dashboard() {
                           )}
                         </div>
 
-                        <h4 style={{ ...styles.detailsTitle, marginBottom: '10px' }}>Loty w tej służbie:</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <h4 style={styles.detailsTitle}>Loty w tej służbie:</h4>
+                          {isScheduler && (
+                            <button onClick={() => openEditDutyFlightsModal(duty)} style={styles.editButton}>
+                              Edytuj loty
+                            </button>
+                          )}
+                        </div>
                         {duty.flights && duty.flights.map(flight => {
                           const fullFlight = flights.find(f => f.id === flight.id);
                           const depTime = fullFlight ? new Date(fullFlight.departureTime).toLocaleString('pl-PL') : '';
@@ -894,6 +988,93 @@ function Dashboard() {
                 disabled={!newFlightNo || !newDepAirportId || !newArrAirportId || !newDepTime || !newArrTime}
               >
                 Zapisz Lot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditDutyFlightsModalOpen && editingDuty && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalContent, maxWidth: '760px' }}>
+            <h2 style={{ marginTop: 0, color: '#1a1f36', fontSize: '20px', marginBottom: '20px' }}>
+              Edytuj loty służby #{editingDuty.id}
+            </h2>
+
+            {editDutyError && (
+              <div style={styles.errorMessage}>
+                {editDutyError}
+              </div>
+            )}
+
+            <div style={{ backgroundColor: '#ebf4ff', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #bee3f8' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '16px' }}>
+                <span style={{ color: '#2b6cb0', fontWeight: '600', fontSize: '14px' }}>Nowe rozpoczęcie:</span>
+                <span style={{ fontWeight: '700', color: '#2c5282' }}>{editPreviewStartTime || 'Brak lotów'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                <span style={{ color: '#2b6cb0', fontWeight: '600', fontSize: '14px' }}>Nowe zakończenie:</span>
+                <span style={{ fontWeight: '700', color: '#2c5282' }}>{editPreviewEndTime || 'Brak lotów'}</span>
+              </div>
+            </div>
+
+            <h3 style={{ ...styles.detailsTitle, marginBottom: '10px' }}>Loty w służbie</h3>
+            <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #edf2f7', borderRadius: '8px', marginBottom: '20px' }}>
+              {editDutySelectedFlights.length === 0 ? (
+                <div style={{ padding: '14px', color: '#c53030', fontSize: '14px' }}>Służba musi mieć co najmniej jeden lot przed zapisem.</div>
+              ) : (
+                editDutySelectedFlights.map(flight => (
+                  <div key={flight.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '12px', borderBottom: '1px solid #edf2f7' }}>
+                    <div>
+                      <strong>{flight.flightNumber}</strong>
+                      <div style={{ fontSize: '12px', color: '#718096', marginTop: '4px' }}>
+                        {flight.departureAirport?.airportCode} → {flight.arrivalAirport?.airportCode} | {new Date(flight.departureTime).toLocaleString('pl-PL')} - {new Date(flight.arrivalTime).toLocaleString('pl-PL')}
+                      </div>
+                    </div>
+                    <button style={styles.removeBtn} onClick={() => toggleEditDutyFlight(flight.id)}>Usuń</button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              <h3 style={styles.detailsTitle}>Dodaj dostępny lot</h3>
+              <input
+                type="text"
+                placeholder="Szukaj numeru lub lotniska"
+                value={editFlightSearch}
+                onChange={(e) => setEditFlightSearch(e.target.value)}
+                style={{ ...styles.filterInput, minWidth: '220px' }}
+              />
+            </div>
+
+            <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #edf2f7', borderRadius: '8px', marginBottom: '24px' }}>
+              {editDutyAvailableFlights.length === 0 ? (
+                <div style={{ padding: '14px', color: '#718096', fontSize: '14px' }}>Brak dostępnych lotów.</div>
+              ) : (
+                editDutyAvailableFlights.map(flight => {
+                  const selected = editDutyFlightIds.includes(flight.id);
+                  return (
+                    <div key={flight.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '12px', borderBottom: '1px solid #edf2f7', backgroundColor: selected ? '#f0fff4' : '#fff' }}>
+                      <div>
+                        <strong>{flight.flightNumber}</strong>
+                        <div style={{ fontSize: '12px', color: '#718096', marginTop: '4px' }}>
+                          {flight.departureAirport?.airportCode} → {flight.arrivalAirport?.airportCode} | {new Date(flight.departureTime).toLocaleString('pl-PL')} - {new Date(flight.arrivalTime).toLocaleString('pl-PL')}
+                        </div>
+                      </div>
+                      <button style={selected ? styles.removeBtn : styles.smallAddBtn} onClick={() => toggleEditDutyFlight(flight.id)}>
+                        {selected ? 'Usuń' : 'Dodaj'}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={closeEditDutyFlightsModal} style={{ padding: '10px 20px', backgroundColor: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Anuluj</button>
+              <button onClick={handleSaveDutyFlights} disabled={editDutyFlightIds.length === 0} style={{ ...styles.btnPrimary, opacity: editDutyFlightIds.length === 0 ? 0.5 : 1 }}>
+                Zapisz służbę
               </button>
             </div>
           </div>

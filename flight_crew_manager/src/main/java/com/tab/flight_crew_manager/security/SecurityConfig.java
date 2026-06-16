@@ -36,7 +36,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable) // Wyłączamy CSRF (przy JWT nie jest potrzebne)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll() //
+                        .requestMatchers("/auth/login").permitAll() //
+                        .requestMatchers("/auth/register").hasAuthority("ADMIN")
                         .anyRequest().authenticated() // Reszta aplikacji wymaga tokenu
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Nie trzymamy sesji w pamięci serwera

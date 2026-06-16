@@ -14,10 +14,13 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,24 +60,8 @@ public class DutyService {
             throw new IllegalStateException("Te loty sa juz przypisane do sluzby: " + String.join(", ", alreadyAssignedFlights));
         }
 
-        selectedFlights.sort(Comparator.comparing(Flight::getDepartureTime));
-
-        Flight firstFlight = selectedFlights.get(0);
-        Flight lastFlight = selectedFlights.get(selectedFlights.size() - 1);
-
         Duty newDuty = new Duty();
-
-        newDuty.setDutyStartTime(firstFlight.getDepartureTime().minusHours(1));
-
-        newDuty.setDutyEndTime(lastFlight.getArrivalTime());
-
-        int totalAirTime = selectedFlights.stream()
-                .mapToInt(Flight::getDurationMinutes)
-                .sum();
-        newDuty.setAirTimeMinutes(totalAirTime);
-
-        long workTimeMinutes = Duration.between(firstFlight.getDepartureTime(), lastFlight.getArrivalTime()).toMinutes();
-        newDuty.setWorkTimeMinutes((int) workTimeMinutes);
+        recalculateDutyTimes(newDuty, selectedFlights);
 
         Duty savedDuty = dutyRepository.save(newDuty);
 
@@ -83,6 +70,68 @@ public class DutyService {
         }
 
         return dutyRepository.save(savedDuty);
+    }
+
+    @Transactional
+    public void updateDutyFlights(Long dutyId, List<Long> flightIds) {
+        if (flightIds == null || flightIds.isEmpty()) {
+            throw new IllegalArgumentException("Sluzba musi zawierac co najmniej jeden lot.");
+        }
+
+        Duty duty = dutyRepository.findByIdForUpdate(dutyId)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono sluzby."));
+
+        List<Long> uniqueFlightIds = flightIds.stream().distinct().toList();
+        List<Flight> selectedFlights = flightRepository.findAllByIdForUpdate(uniqueFlightIds);
+
+        if (selectedFlights.size() != uniqueFlightIds.size()) {
+            throw new IllegalArgumentException("Nie znaleziono wszystkich wybranych lotow.");
+        }
+
+        List<String> alreadyAssignedFlights = selectedFlights.stream()
+                .filter(flight -> flight.getDuty() != null && !flight.getDuty().getId().equals(dutyId))
+                .map(Flight::getFlightNumber)
+                .toList();
+
+        if (!alreadyAssignedFlights.isEmpty()) {
+            throw new IllegalStateException("Te loty sa juz przypisane do innej sluzby: " + String.join(", ", alreadyAssignedFlights));
+        }
+
+        List<CrewAssignment> activeAssignments = duty.getAssignments().stream()
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
+                .toList();
+        Map<Long, AssignmentTimeSnapshot> previousStats = new HashMap<>();
+        for (CrewAssignment assignment : activeAssignments) {
+            previousStats.put(assignment.getId(), snapshotAssignmentTime(assignment));
+        }
+
+        for (Flight flight : new ArrayList<>(duty.getFlights())) {
+            flight.setDuty(null);
+        }
+        duty.getFlights().clear();
+
+        selectedFlights.sort(Comparator.comparing(Flight::getDepartureTime));
+        for (Flight flight : selectedFlights) {
+            duty.addFlight(flight);
+        }
+        recalculateDutyTimes(duty, selectedFlights);
+
+        for (CrewAssignment assignment : activeAssignments) {
+            AssignmentTimeSnapshot previous = previousStats.get(assignment.getId());
+            AssignmentTimeSnapshot current = snapshotAssignmentTime(assignment);
+            User assignedUser = assignment.getUser();
+
+            assignedUser.setTotalAirBorneTimeMinutes(Math.max(0,
+                    safeMinutes(assignedUser.getTotalAirBorneTimeMinutes()) - previous.airTimeMinutes() + current.airTimeMinutes()));
+            assignedUser.setTotalWorkTimeMinutes(Math.max(0,
+                    safeMinutes(assignedUser.getTotalWorkTimeMinutes()) - previous.workTimeMinutes() + current.workTimeMinutes()));
+            assignedUser.setTotalDutyTimeMinutes(Math.max(0,
+                    safeMinutes(assignedUser.getTotalDutyTimeMinutes()) - previous.dutyTimeMinutes() + current.dutyTimeMinutes()));
+
+            userRepository.save(assignedUser);
+        }
+
+        dutyRepository.save(duty);
     }
 
 
@@ -273,6 +322,30 @@ public class DutyService {
 
     private int safeMinutes(Integer minutes) {
         return minutes != null ? minutes : 0;
+    }
+
+    private void recalculateDutyTimes(Duty duty, List<Flight> selectedFlights) {
+        selectedFlights.sort(Comparator.comparing(Flight::getDepartureTime));
+
+        Flight firstFlight = selectedFlights.get(0);
+        Flight lastFlight = selectedFlights.get(selectedFlights.size() - 1);
+
+        duty.setDutyStartTime(firstFlight.getDepartureTime().minusHours(1));
+        duty.setDutyEndTime(lastFlight.getArrivalTime());
+        duty.setAirTimeMinutes(selectedFlights.stream()
+                .mapToInt(flight -> flight.getDurationMinutes() != null ? flight.getDurationMinutes() : 0)
+                .sum());
+        duty.setWorkTimeMinutes((int) Duration.between(firstFlight.getDepartureTime(), lastFlight.getArrivalTime()).toMinutes());
+    }
+
+    private AssignmentTimeSnapshot snapshotAssignmentTime(CrewAssignment assignment) {
+        return new AssignmentTimeSnapshot(
+                getTrackedAirTimeMinutes(assignment),
+                getTrackedWorkTimeMinutes(assignment),
+                getTrackedDutyDurationMinutes(assignment));
+    }
+
+    private record AssignmentTimeSnapshot(int airTimeMinutes, int workTimeMinutes, int dutyTimeMinutes) {
     }
 
     @Transactional

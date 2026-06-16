@@ -9,6 +9,9 @@ function UserList() {
   // Stan odpowiadający za okienko (Modal)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const emptyNewUser = { login: '', password: '', name: '', surname: '', phoneNumber: '', userRole: 'CREWMEMBER' };
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newUser, setNewUser] = useState(emptyNewUser);
 
   const token = localStorage.getItem('token');
 
@@ -52,6 +55,40 @@ function UserList() {
     setEditingUser(null);
   };
 
+  const handleOpenCreateModal = () => {
+    setNewUser(emptyNewUser);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setNewUser(emptyNewUser);
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:8080/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newUser)
+      });
+
+      if (res.ok) {
+        handleCloseCreateModal();
+        fetchData();
+      } else {
+        const errorText = await res.text();
+        alert(errorText || 'Wystąpił błąd podczas tworzenia użytkownika.');
+      }
+    } catch (err) {
+      alert('Błąd połączenia z serwerem.');
+    }
+  };
+
   // Zapisywanie zmian w okienku
 const handleSave = async (e) => {
     e.preventDefault(); 
@@ -88,7 +125,8 @@ const handleSave = async (e) => {
   const styles = {
     page: { display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: '100vh', backgroundColor: '#f0f2f5', fontFamily: '"Inter", sans-serif', padding: '40px 20px' },
     card: { backgroundColor: '#ffffff', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', width: '100%', maxWidth: '900px' },
-    title: { margin: '0 0 24px 0', color: '#1a1f36', fontSize: '24px', fontWeight: '700', textAlign: 'center' },
+    headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' },
+    title: { margin: 0, color: '#1a1f36', fontSize: '24px', fontWeight: '700', textAlign: 'center' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '20px' },
     th: { backgroundColor: '#f7fafc', color: '#4a5568', padding: '12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', fontSize: '14px', textTransform: 'uppercase' },
     td: { padding: '16px 12px', borderBottom: '1px solid #edf2f7', color: '#1a1f36', fontSize: '14px', verticalAlign: 'middle' },
@@ -96,6 +134,7 @@ const handleSave = async (e) => {
     backLink: { display: 'block', textAlign: 'center', color: '#5469d4', textDecoration: 'none', fontSize: '14px', fontWeight: '500', cursor: 'pointer', marginTop: '24px' },
     error: { color: '#e53e3e', textAlign: 'center', marginBottom: '16px' },
     btnEdit: { backgroundColor: '#edf2f7', color: '#4a5568', border: '1px solid #cbd5e0', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' },
+    btnCreate: { backgroundColor: '#2b6cb0', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' },
     
     // Strefa styli dla Okienka (Modala)
     modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
@@ -121,7 +160,10 @@ const handleSave = async (e) => {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Baza Użytkowników</h1>
+        <div style={styles.headerRow}>
+          <h1 style={styles.title}>Baza Użytkowników</h1>
+          <button style={styles.btnCreate} onClick={handleOpenCreateModal}>+ Dodaj użytkownika</button>
+        </div>
         
         {error && <div style={styles.error}>{error}</div>}
 
@@ -156,6 +198,48 @@ const handleSave = async (e) => {
 
         <div style={styles.backLink} onClick={() => navigate('/dashboard')}>Wróć do Dashboardu</div>
       </div>
+
+      {isCreateModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+            <h2 style={styles.modalTitle}>Dodaj Użytkownika</h2>
+            <form onSubmit={handleCreateUser}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Imię</label>
+                <input style={styles.input} type="text" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Nazwisko</label>
+                <input style={styles.input} type="text" value={newUser.surname} onChange={e => setNewUser({ ...newUser, surname: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Login</label>
+                <input style={styles.input} type="text" value={newUser.login} onChange={e => setNewUser({ ...newUser, login: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Hasło startowe</label>
+                <input style={styles.input} type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Telefon</label>
+                <input style={styles.input} type="text" value={newUser.phoneNumber} onChange={e => setNewUser({ ...newUser, phoneNumber: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Rola</label>
+                <select style={styles.select} value={newUser.userRole} onChange={e => setNewUser({ ...newUser, userRole: e.target.value })}>
+                  <option value="CREWMEMBER">CREWMEMBER</option>
+                  <option value="SCHEDULER">SCHEDULER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </div>
+              <div style={styles.modalActions}>
+                <button type="button" style={styles.btnCancel} onClick={handleCloseCreateModal}>Anuluj</button>
+                <button type="submit" style={styles.btnSave}>Utwórz konto</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* OKIENKO (MODAL) DO EDYCJI */}
       {isModalOpen && editingUser && (
